@@ -25,13 +25,40 @@ leaving accountants to review exceptions and explain the numbers.
    with a full audit trail.
 
 ## Quick start
-    git clone https://github.com/<you>/bridge
-    cd bridge
-    cp .env.example .env   # add your Nebius API key
-    docker compose up
+
+```bash
+git clone https://github.com/<you>/bridge
+cd bridge
+cp .env.example .env   # add your Nebius / OpenAI key when not using stub
+docker compose up --build
+```
+
+- UI: http://localhost:8080
+- Health (via nginx): http://localhost:8080/health
+- API docs (via nginx): http://localhost:8080/docs
+
+Default `LLM_PROVIDER=stub` so the stack runs without an API key.
+
+### Hot-reload development
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+- UI (Vite): http://localhost:5173
+- API (direct): http://localhost:8000
+- Health: http://localhost:8000/health
+
+Env is centralized in the repo-root `.env` (see `.env.example`).
 
 ## Repo layout
-    frontend/   backend/   docs/
+
+```
+frontend/   backend/   docs/
+docker-compose.yml
+docker-compose.dev.yml
+.env.example
+```
 
 ## License
 Apache-2.0
