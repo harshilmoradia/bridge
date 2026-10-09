@@ -11,6 +11,8 @@ def app(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LLM_PROVIDER", "stub")
     monkeypatch.setenv("LLM_API_KEY", "")
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("SUPABASE_URL", "")
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "")
     application = create_app()
     yield application
     get_settings.cache_clear()

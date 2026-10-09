@@ -39,6 +39,8 @@ docker compose up --build
 
 Default `LLM_PROVIDER=stub` so the stack runs without an API key.
 
+Email/password authentication uses Supabase. Follow [the Supabase setup guide](docs/supabase-setup.md) to create a project, apply the profiles migration, and configure email redirects and environment variables. Without configuration, the UI offers sample demo access; the backend chat/account endpoints require real Supabase authentication. Reconciliation data remains a browser-local demo at this stage.
+
 ### Hot-reload development
 
 ```bash

@@ -11,6 +11,8 @@ interface SidebarProps {
     userInitials: string;
     isCollapsed: boolean;
     toggleCollapse: () => void;
+    signOut: () => void;
+    signingOut: boolean;
 }
 
 export const Sidebar: FC<SidebarProps> = ({
@@ -21,7 +23,9 @@ export const Sidebar: FC<SidebarProps> = ({
     userEmailInput,
     userInitials,
     isCollapsed,
-    toggleCollapse
+    toggleCollapse,
+    signOut,
+    signingOut,
 }) => {
     const { theme, toggleTheme } = useTheme();
 
@@ -90,6 +94,10 @@ export const Sidebar: FC<SidebarProps> = ({
             </nav>
 
             <div className={`p-3 border-t border-border bg-muted/10`}>
+                <button type="button" aria-label="Sign out" title="Sign out" disabled={signingOut} onClick={signOut} className="w-full flex items-center justify-center gap-2 rounded-lg py-2 mb-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50">
+                    <i aria-hidden="true" className="ri-logout-box-r-line" />
+                    {!isCollapsed && <span className="hidden md:inline">{signingOut ? 'Signing out…' : 'Sign out'}</span>}
+                </button>
                 <div className={`flex items-center ${isCollapsed ? 'flex-col gap-3' : 'flex-col md:flex-row gap-3 md:justify-between md:px-1'}`}>
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shadow-sm border border-primary/20 flex-shrink-0">

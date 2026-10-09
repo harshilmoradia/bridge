@@ -1,7 +1,8 @@
 import { useState, useEffect, useSyncExternalStore, lazy, Suspense, type ChangeEvent, type FormEvent } from 'react';
 import { useKeyboardShortcuts, useToast, useTimeouts } from './hooks/useAppHooks';
 import { ToastContainer } from './components/ToastContainer';
-import { LoginScreen } from './components/LoginScreen';
+import { AuthGate } from './components/AuthGate';
+import { getInitials, type Identity } from './lib/auth';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { ExceptionModal } from './components/ExceptionModal';
@@ -12,13 +13,16 @@ import { approveOne, approveVisible, canBulkApprove, filterTransactions, getCoun
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 
-const App = () => {
-    // Auth State
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [loginLoading, setLoginLoading] = useState(false);
-    const [userEmailInput, setUserEmailInput] = useState('');
-    const [userName, setUserName] = useState('Accountant');
-    const [userInitials, setUserInitials] = useState('AC');
+interface WorkspaceProps {
+    identity: Identity;
+    signOut: () => Promise<void>;
+    signingOut: boolean;
+}
+
+const Workspace = ({ identity, signOut, signingOut }: WorkspaceProps) => {
+    const userName = identity.displayName;
+    const userEmailInput = identity.email;
+    const userInitials = getInitials(userName);
 
     // UI Layout State
     const [activeTab, setActiveTab] = useState<TabId>('dashboard');
@@ -30,7 +34,7 @@ const App = () => {
     const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
     // Chat State
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: 'agent', content: 'Welcome to Bridge. This workspace currently uses sample transactions and simulated replies. Approvals are saved in this browser; no entries are posted to an ERP.' }]);
     const [chatInput, setChatInput] = useState('');
     const [agentTyping, setAgentTyping] = useState(false);
 
@@ -87,20 +91,6 @@ const App = () => {
         setActiveTab(tabId);
         setSearchQuery('');
         setLedger(prev => ({ ...prev, transactions: prev.transactions.map(tx => ({ ...tx, selected: false })) }));
-    };
-
-    const handleLogin = (email: string) => {
-        if (loginLoading) return;
-        setLoginLoading(true);
-        setUserEmailInput(email);
-        const parts = email.split('@')[0].split('.').filter(Boolean);
-        setUserName(parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') || 'Demo User');
-        setUserInitials((parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] || 'DM').slice(0, 2)).toUpperCase());
-        schedule(() => {
-            setLoginLoading(false);
-            setIsLoggedIn(true);
-            setChatMessages([{ role: 'agent', content: "Welcome to the Bridge demo. Transactions and replies are simulated. Approvals are saved in this browser; no entries are posted to an ERP." }]);
-        }, 300);
     };
 
     const handleHeaderFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -185,17 +175,6 @@ const App = () => {
             tx.id === id && canBulkApprove(tx) ? { ...tx, selected: !tx.selected } : tx) }));
     };
 
-    if (!isLoggedIn) {
-        return (
-            <LoginScreen
-                loginLoading={loginLoading}
-                userEmailInput={userEmailInput}
-                setUserEmailInput={setUserEmailInput}
-                handleLogin={handleLogin}
-            />
-        );
-    }
-
     const renderMainContent = () => {
         if (activeTab === 'dashboard') {
             return (
@@ -272,6 +251,8 @@ const App = () => {
                 userInitials={userInitials}
                 isCollapsed={isSidebarCollapsed}
                 toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                signOut={() => void signOut()}
+                signingOut={signingOut}
             />
 
             <main className="min-w-0 flex-1 flex flex-col h-full relative overflow-y-auto z-10 transition-colors duration-300">
@@ -290,7 +271,7 @@ const App = () => {
 
                 <div className="p-4 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
                     <p role="status" className="text-xs text-muted-foreground border border-border rounded-lg p-3">
-                        Demo mode — sample data, simulated chat and uploads. {storageAvailable ? 'Approvals are saved in this browser.' : 'Browser storage is unavailable; approvals last for this session only.'} No ERP posting or authentication.
+                        {identity.isDemo ? 'Demo access' : 'Signed in'} — sample data, simulated chat and uploads. {storageAvailable ? 'Demo approvals are saved in this browser.' : 'Browser storage is unavailable; demo approvals last for this session only.'} No ERP posting. Transactions are not yet stored in your account.
                     </p>
                     {activeTab !== 'dashboard' && activeTab !== 'audit-trail' && transactions.length > 0 && (
                         <div className="bg-primary/5 dark:bg-primary/10 border border-primary/10 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in">
@@ -333,4 +314,6 @@ const App = () => {
     );
 };
 
-export default App;
+export default function App() {
+    return <AuthGate>{(identity, signOut, signingOut) => <Workspace key={identity.id} identity={identity} signOut={signOut} signingOut={signingOut} />}</AuthGate>;
+}

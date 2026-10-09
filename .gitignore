@@ -18,3 +18,5 @@ htmlcov/
 
 data
 bridge-data
+
+supabase/migrations/*.sql
