@@ -19,6 +19,7 @@ htmlcov/
 data
 bridge-data
 
+supabase/migrations/*.sql
 
 skills-lock.json
 .agents
