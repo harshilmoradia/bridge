@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    environment:
+      # Browser hits the UI origin; nginx proxies API on the same host.
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-8080}
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
