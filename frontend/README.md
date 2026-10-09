@@ -1,32 +1,29 @@
-# React + TypeScript + Vite
+# Bridge frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React, TypeScript, Vite, Tailwind CSS, and Recharts.
 
-Currently, two official plugins are available:
+## Development and checks
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Use Node.js 22.16 or newer (Node 22 LTS recommended).
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm ci
+npm run dev
+npm run lint
+npm test
+npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The test command uses Node's built-in test runner and TypeScript stripping; no extra test dependency is needed. Regression tests cover search and tab-scoped selection, approval mappings, duplicate approvals, dashboard counts, and saved demo data validation.
+
+## Demo behavior
+
+This frontend currently runs as a demo. The email identifies the demo user; it does not authenticate an account, and no password is requested. Chat and document uploads are simulated. File contents are not parsed, and approvals do not post to an ERP.
+
+Demo transactions and audit history are saved under `bridge-demo-ledger-v1` in this browser's local storage. Clear that key to reset the sample data. Invalid stored data falls back to the initial samples. If storage is unavailable, the app remains usable and explains that changes last only for the current session.
+
+The backend has a chat endpoint, but authentication, uploads, and ledger posting still require API integration before production use.
+
+## Screenshots
+
+See the [desktop and mobile screenshots](../docs/screenshots/frontend/README.md) for the dashboard and centered transaction review dialog.

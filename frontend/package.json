@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "lint": "oxlint src vite.config.ts --deny-warnings",
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types --test tests/transactions.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -18,6 +19,8 @@
     "radix-ui": "^1.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
+    "remixicon": "^4.9.1",
     "shadcn": "^4.21.3",
     "tailwindcss": "^4.3.3",
     "tw-animate-css": "^1.4.0"
