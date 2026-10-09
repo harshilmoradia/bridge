@@ -18,3 +18,9 @@ htmlcov/
 
 data
 bridge-data
+
+
+skills-lock.json
+.agents
+.claude
+skills
