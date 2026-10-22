@@ -1,0 +1,111 @@
+Day,Transaction_ID,Date,Description,Amount,Type,Status,Check_Number,Scenario_Name
+1,GL001,2026-10-01,Check Payment - Office Supplies,750.0,CHECK,Posted,4521,Outstanding Check
+1,GL002,2026-10-01,Invoice Payment - Duplicate,3200.0,CHECK,Posted,2847,Duplicate Transaction
+1,GL003,2026-10-01,Invoice Payment - Duplicate,3200.0,CHECK,Posted,2847,Duplicate Transaction
+1,GL004,2026-10-01,Vendor Payment - Tech Solutions,1850.0,TRANSFER,Posted,,Regular
+1,GL005,2026-10-01,Consulting Fee - Monthly,2500.0,TRANSFER,Posted,,Regular
+1,GL006,2026-10-01,Customer Refund - Order #5432,425.0,CREDIT,Posted,,Regular
+1,GL007,2026-10-01,Employee Reimbursement,320.0,TRANSFER,Posted,,Regular
+1,GL008,2026-10-01,Utility Payment - Electric,680.0,CHECK,Posted,3105,Regular
+1,GL009,2026-10-01,Insurance Premium,950.0,TRANSFER,Posted,,Regular
+1,GL010,2026-10-01,Office Equipment Purchase,1200.0,CHECK,Posted,3106,Regular
+1,GL011,2026-10-01,Maintenance & Repairs,450.0,TRANSFER,Posted,,Regular
+2,GL012,2026-10-02,Deposit - Customer Invoice #INV-001,5400.0,DEPOSIT,Posted,,Deposit in Transit
+2,GL013,2026-10-02,Payroll ACH Transfer,12500.0,ACH,Posted,,ACH Timing
+2,GL014,2026-10-02,Vendor Payment - Widget Co,1850.0,TRANSFER,Posted,,Regular
+2,GL015,2026-10-02,Office Lease Payment,3500.0,CHECK,Posted,3107,Regular
+2,GL016,2026-10-02,Marketing Expense,2200.0,TRANSFER,Posted,,Regular
+2,GL017,2026-10-02,Software License Renewal,800.0,CHECK,Posted,3108,Regular
+2,GL018,2026-10-02,Supplies Purchase,575.0,TRANSFER,Posted,,Regular
+2,GL019,2026-10-02,Client Reimbursement,1100.0,CREDIT,Posted,,Regular
+2,GL020,2026-10-02,Bank Account Transfer,4000.0,TRANSFER,Posted,,Regular
+2,GL021,2026-10-02,Equipment Rental,650.0,CHECK,Posted,3109,Regular
+2,GL022,2026-10-02,Professional Services,2100.0,TRANSFER,Posted,,Regular
+3,GL023,2026-10-03,Vendor Payment - Packaging,925.0,TRANSFER,Posted,,Regular
+3,GL024,2026-10-03,Wire Transfer - Supplier Payment,8750.0,WIRE,Posted,,Regular
+3,GL025,2026-10-03,Payroll Advance,1500.0,CHECK,Posted,3110,Regular
+3,GL026,2026-10-03,Customer Refund - Return,500.0,CREDIT,Posted,,Regular
+3,GL027,2026-10-03,Office Cleaning Service,350.0,TRANSFER,Posted,,Regular
+3,GL028,2026-10-03,Travel Expense Reimbursement,1200.0,TRANSFER,Posted,,Regular
+3,GL029,2026-10-03,Vendor Deposit - Future Services,2000.0,TRANSFER,Posted,,Regular
+3,GL030,2026-10-03,Equipment Maintenance,425.0,CHECK,Posted,3111,Regular
+3,GL031,2026-10-03,Consulting - Project ABC,3300.0,TRANSFER,Posted,,Regular
+3,GL032,2026-10-03,Donation - Charity Event,500.0,CHECK,Posted,3112,Regular
+3,GL033,2026-10-03,Product Purchase,1650.0,TRANSFER,Posted,,Regular
+4,GL034,2026-10-04,Check Payment - Utilities,325.0,CHECK,Posted,1001,Check Out of Order
+4,GL035,2026-10-04,Check Payment - Internet,180.0,CHECK,Posted,1003,Check Out of Order
+4,GL036,2026-10-04,Check Payment - Phone,95.0,CHECK,Posted,1005,Check Out of Order
+4,GL037,2026-10-04,Vendor Payment - Bulk Order,5500.0,TRANSFER,Posted,,Regular
+4,GL038,2026-10-04,Employee Bonus Distribution,2000.0,CHECK,Posted,3113,Regular
+4,GL039,2026-10-04,Inventory Purchase,3200.0,TRANSFER,Posted,,Regular
+4,GL040,2026-10-04,Rent Payment,4000.0,CHECK,Posted,3114,Regular
+4,GL041,2026-10-04,Subscription Service,400.0,TRANSFER,Posted,,Regular
+4,GL042,2026-10-04,Customer Advance - Prepayment,6000.0,DEPOSIT,Posted,,Regular
+4,GL043,2026-10-04,Marketing Campaign,1800.0,TRANSFER,Posted,,Regular
+4,GL044,2026-10-04,Repairs & Maintenance,750.0,CHECK,Posted,3115,Regular
+5,GL045,2026-10-05,Widget Co Transfer,1234.5,TRANSFER,Posted,,Penny Rounding
+5,GL046,2026-10-05,Sales Return - Refund,485.0,CREDIT,Posted,,Partial Refund
+5,GL047,2026-10-05,Returned Check NSF,950.0,DEBIT,Posted,3116,NSF Reversal
+5,GL048,2026-10-05,Payroll Processing,11200.0,ACH,Posted,,Regular
+5,GL049,2026-10-05,Office Supplies,620.0,CHECK,Posted,3117,Regular
+5,GL050,2026-10-05,Client Entertainment,850.0,TRANSFER,Posted,,Regular
+5,GL051,2026-10-05,Insurance - Additional Coverage,1200.0,TRANSFER,Posted,,Regular
+5,GL052,2026-10-05,Vendor Discount Applied,-350.0,CREDIT,Posted,,Regular
+5,GL053,2026-10-05,Equipment Lease,1500.0,CHECK,Posted,3118,Regular
+5,GL054,2026-10-05,Training & Development,2500.0,TRANSFER,Posted,,Regular
+5,GL055,2026-10-05,Freight & Shipping,875.0,TRANSFER,Posted,,Regular
+6,GL056,2026-10-06,Deposit - Evening Cash,2800.0,DEPOSIT,Posted,,Regular
+6,GL057,2026-10-06,Payment - Contractor Invoice,3500.0,CHECK,Posted,3119,Regular
+6,GL058,2026-10-06,Vendor Payment - Emergency Supplies,1950.0,TRANSFER,Posted,,Regular
+6,GL059,2026-10-06,Refund to Customer,650.0,CREDIT,Posted,,Regular
+6,GL060,2026-10-06,ACH Payroll - Bi-Weekly,13500.0,ACH,Posted,,Regular
+6,GL061,2026-10-06,Office Furniture Purchase,2200.0,CHECK,Posted,3120,Regular
+6,GL062,2026-10-06,Conference Registration,1500.0,TRANSFER,Posted,,Regular
+6,GL063,2026-10-06,Toll & Transportation,125.0,TRANSFER,Posted,,Regular
+6,GL064,2026-10-06,Security System Monitoring,300.0,CHECK,Posted,3121,Regular
+6,GL065,2026-10-06,Vendor Rebate Received,-500.0,CREDIT,Posted,,Regular
+6,GL066,2026-10-06,Software Support Contract,800.0,TRANSFER,Posted,,Regular
+7,GL067,2026-10-07,Wire Transfer - Supplier XYZ,8900.0,WIRE,Posted,,Regular
+7,GL068,2026-10-07,Inventory Adjustment,1200.0,TRANSFER,Posted,,Regular
+7,GL069,2026-10-07,Employee Salary,8500.0,ACH,Posted,,Regular
+7,GL070,2026-10-07,Utility - Water & Sewer,420.0,CHECK,Posted,3122,Regular
+7,GL071,2026-10-07,Petty Cash Replenishment,500.0,TRANSFER,Posted,,Regular
+7,GL072,2026-10-07,Office Supply Order,680.0,CHECK,Posted,3123,Regular
+7,GL073,2026-10-07,Customer Deposit Received,4500.0,DEPOSIT,Posted,,Regular
+7,GL074,2026-10-07,Vendor Late Payment Penalty,150.0,TRANSFER,Posted,,Regular
+7,GL075,2026-10-07,IT Support Services,2000.0,TRANSFER,Posted,,Regular
+7,GL076,2026-10-07,Equipment Upgrade,3100.0,CHECK,Posted,3124,Regular
+7,GL077,2026-10-07,Annual Membership Renewal,450.0,TRANSFER,Posted,,Regular
+8,GL078,2026-10-08,Deposit - Vendor Refund,1500.0,DEPOSIT,Posted,,Regular
+8,GL079,2026-10-08,Returned Check NSF - Reversal,950.0,DEBIT,Posted,,NSF Reversal
+8,GL080,2026-10-08,Consulting Payment,2400.0,CHECK,Posted,3125,Regular
+8,GL081,2026-10-08,Inventory Purchase,4200.0,TRANSFER,Posted,,Regular
+8,GL082,2026-10-08,Payroll Taxes,3200.0,ACH,Posted,,Regular
+8,GL083,2026-10-08,Office Lease,3500.0,CHECK,Posted,3126,Regular
+8,GL084,2026-10-08,Marketing Expense,1600.0,TRANSFER,Posted,,Regular
+8,GL085,2026-10-08,Customer Refund,300.0,CREDIT,Posted,,Regular
+8,GL086,2026-10-08,Building Maintenance,850.0,CHECK,Posted,3127,Regular
+8,GL087,2026-10-08,Professional Development,1250.0,TRANSFER,Posted,,Regular
+8,GL088,2026-10-08,Shipping & Logistics,950.0,TRANSFER,Posted,,Regular
+9,GL089,2026-10-09,Deposit - Daily Sales,3600.0,DEPOSIT,Posted,,Regular
+9,GL090,2026-10-09,Vendor Payment,2100.0,CHECK,Posted,3128,Regular
+9,GL091,2026-10-09,ACH Payment - Utilities,525.0,ACH,Posted,,Regular
+9,GL092,2026-10-09,Equipment Rental,800.0,TRANSFER,Posted,,Regular
+9,GL093,2026-10-09,Client Reimbursement,450.0,CREDIT,Posted,,Regular
+9,GL094,2026-10-09,Office Supplies,380.0,CHECK,Posted,3129,Regular
+9,GL095,2026-10-09,Insurance Claim Reimbursement,5000.0,DEPOSIT,Posted,,Regular
+9,GL096,2026-10-09,Contractor Invoice,3800.0,TRANSFER,Posted,,Regular
+9,GL097,2026-10-09,Software Updates,600.0,CHECK,Posted,3130,Regular
+9,GL098,2026-10-09,Employee Travel Reimbursement,2200.0,TRANSFER,Posted,,Regular
+9,GL099,2026-10-09,Miscellaneous Expense,275.0,TRANSFER,Posted,,Regular
+10,GL100,2026-10-10,Deposit - Monthly Collections,7200.0,DEPOSIT,Posted,,Regular
+10,GL101,2026-10-10,Lease Payment,3500.0,CHECK,Posted,3131,Regular
+10,GL102,2026-10-10,Payroll Processing,12000.0,ACH,Posted,,Regular
+10,GL103,2026-10-10,Inventory Purchase,2800.0,TRANSFER,Posted,,Regular
+10,GL104,2026-10-10,Vendor Payment - Services,1950.0,CHECK,Posted,3132,Regular
+10,GL105,2026-10-10,Office Equipment,2400.0,TRANSFER,Posted,,Regular
+10,GL106,2026-10-10,Customer Refund,175.0,CREDIT,Posted,,Regular
+10,GL107,2026-10-10,Insurance Premium,1800.0,CHECK,Posted,3133,Regular
+10,GL108,2026-10-10,Travel & Meals,1100.0,TRANSFER,Posted,,Regular
+10,GL109,2026-10-10,Supplies,520.0,CHECK,Posted,3134,Regular
+10,GL110,2026-10-10,Professional Fees,2200.0,TRANSFER,Posted,,Regular
