@@ -18,6 +18,7 @@ An agentic bank reconciliation app for the Nebius x NVIDIA hackathon. Nemotron a
 - Inngest dev server: `npx inngest-cli@latest dev -u http://localhost:8000/api/inngest`
 - Frontend: `cd frontend && npm run dev`, `npm run build`, `npm run lint`
 - Regenerate demo data: `python3 demo-data/generate.py` (run from the repo root)
+- Seed the DB (needs `DATABASE_URL`): `cd backend && uv run python -m scripts.seed`
 
 ## Rules
 

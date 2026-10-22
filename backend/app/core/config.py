@@ -57,6 +57,10 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_URL must use HTTPS (HTTP is allowed only for local development)")
         return value
 
+    # Supabase transaction pooler (port 6543). Backend only.
+    database_url: str = ""
+    dataset: str = "northbrook-2026-10"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: object) -> object:
