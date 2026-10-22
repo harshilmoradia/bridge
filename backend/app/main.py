@@ -9,6 +9,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import setup_logging
+from app.core.spa import mount_spa
 from app.workflows import functions, inngest_client
 
 
@@ -32,6 +33,8 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_router)
     inngest.fast_api.serve(app, inngest_client, functions)  # serves /api/inngest
+    if settings.static_dir:
+        mount_spa(app, settings.static_dir)  # last: catch-all for the UI
     return app
 
 

@@ -19,6 +19,7 @@ An agentic bank reconciliation app for the Nebius x NVIDIA hackathon. Nemotron a
 - Frontend: `cd frontend && npm run dev`, `npm run build`, `npm run lint`
 - Regenerate demo data: `python3 demo-data/generate.py` (run from the repo root)
 - Seed the DB (needs `DATABASE_URL`): `cd backend && uv run python -m scripts.seed`
+- Single-container image: `docker build -t bridge . && docker run -p 8000:8000 --env-file .env bridge` (UI and API on :8000)
 
 ## Rules
 
