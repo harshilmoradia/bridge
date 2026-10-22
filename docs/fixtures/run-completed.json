@@ -1,0 +1,43 @@
+{
+  "id": "run_01",
+  "input_id": "day-2026-09-23",
+  "status": "completed",
+  "created_at": "2026-10-22T14:00:00Z",
+  "updated_at": "2026-10-22T14:00:31Z",
+  "steps": [
+    {"id": "plan", "agent": "planner", "label": "Plan the day's work", "model_tier": "super", "status": "completed", "started_at": "2026-10-22T14:00:01Z", "finished_at": "2026-10-22T14:00:04Z", "output_summary": "5 new records: 3 card charges, 3 bank transactions", "error": null},
+    {"id": "match-payments", "agent": "payment-matcher", "label": "Match bank payments to bills", "model_tier": "nano", "status": "completed", "started_at": "2026-10-22T14:00:05Z", "finished_at": "2026-10-22T14:00:14Z", "output_summary": "Matched 2 payments, found 1 duplicate bill", "error": null},
+    {"id": "review-cards", "agent": "card-reviewer", "label": "Review card charges", "model_tier": "nano", "status": "completed", "started_at": "2026-10-22T14:00:05Z", "finished_at": "2026-10-22T14:00:12Z", "output_summary": "1 expense spike flagged", "error": null},
+    {"id": "synthesize", "agent": "reporter", "label": "Write close report", "model_tier": "ultra", "status": "completed", "started_at": "2026-10-22T14:00:15Z", "finished_at": "2026-10-22T14:00:31Z", "output_summary": "2 findings need review", "error": null}
+  ],
+  "result": {
+    "summary": "Two items need review: a duplicate Midwest Office Supply bill and an AWS charge 4.2x the monthly average.",
+    "findings": [
+      {
+        "id": "f_1", "kind": "duplicate_bill", "severity": "high", "needs_human": true,
+        "title": "Bill MOS 10443 duplicates MOS-10443",
+        "reasoning": "Same vendor, amount (642.18) and bill date. The invoice numbers match after normalizing the dash.",
+        "confidence": 0.97,
+        "proposed_action": "Block B-0025 from the payment run",
+        "evidence": [{"type": "bill", "id": "B-0023"}, {"type": "bill", "id": "B-0025"}, {"type": "bank_transaction", "id": "BT-0027"}]
+      },
+      {
+        "id": "f_2", "kind": "expense_spike", "severity": "high", "needs_human": true,
+        "title": "AWS charge is about 4.2x the monthly average",
+        "reasoning": "9,874.12 against a prior average of about 2,358.",
+        "confidence": 0.9,
+        "proposed_action": "Ask the cardholder for a usage explanation before coding",
+        "evidence": [{"type": "card_transaction", "id": "CT-0052"}]
+      }
+    ],
+    "proposed_entries": [
+      {
+        "id": "e_1", "debit_account": "2000 Accounts Payable", "credit_account": "1000 Operating Cash",
+        "amount": "642.18", "memo": "Payment to Midwest Office Supply for MOS-10443",
+        "confidence": 0.95, "auto_post": true,
+        "evidence": [{"type": "bill", "id": "B-0023"}, {"type": "bank_transaction", "id": "BT-0027"}]
+      }
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,15 @@
+{
+  "id": "run_01",
+  "input_id": "day-2026-09-23",
+  "status": "running",
+  "created_at": "2026-10-22T14:00:00Z",
+  "updated_at": "2026-10-22T14:00:09Z",
+  "steps": [
+    {"id": "plan", "agent": "planner", "label": "Plan the day's work", "model_tier": "super", "status": "completed", "started_at": "2026-10-22T14:00:01Z", "finished_at": "2026-10-22T14:00:04Z", "output_summary": "5 new records: 3 card charges, 3 bank transactions", "error": null},
+    {"id": "match-payments", "agent": "payment-matcher", "label": "Match bank payments to bills", "model_tier": "nano", "status": "running", "started_at": "2026-10-22T14:00:05Z", "finished_at": null, "output_summary": null, "error": null},
+    {"id": "review-cards", "agent": "card-reviewer", "label": "Review card charges", "model_tier": "nano", "status": "running", "started_at": "2026-10-22T14:00:05Z", "finished_at": null, "output_summary": null, "error": null},
+    {"id": "synthesize", "agent": "reporter", "label": "Write close report", "model_tier": "ultra", "status": "pending", "started_at": null, "finished_at": null, "output_summary": null, "error": null}
+  ],
+  "result": null,
+  "error": null
+}
