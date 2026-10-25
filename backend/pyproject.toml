@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.128.0",
     "httpx>=0.28.0",
     "inngest>=0.5.19",
+    "psycopg[binary,pool]>=3.2",
     "pydantic-settings>=2.11.0",
     "uvicorn[standard]>=0.40.0",
 ]
@@ -22,6 +23,7 @@ dev = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [build-system]
 requires = ["hatchling"]
