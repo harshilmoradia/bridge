@@ -1,5 +1,5 @@
-# Single container: FastAPI serves the API, Inngest and the built UI on :8000.
-#   docker build -t bridge . && docker run -p 8000:8000 --env-file .env bridge
+# Single container: FastAPI serves the API, Inngest and the built UI on $PORT (default 8000).
+#   docker build -t bridge . && docker run -p 8000:8000 --env-file backend/.env bridge
 
 # --- frontend build ---
 FROM node:22-bookworm-slim AS frontend
@@ -41,6 +41,7 @@ COPY --from=frontend /frontend/dist ./static
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
-CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hosts like Railway assign $PORT; exec keeps uvicorn as PID 1 so it receives SIGTERM.
+CMD ["sh", "-c", "exec uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

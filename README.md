@@ -29,9 +29,14 @@ leaving accountants to review exceptions and explain the numbers.
 ```bash
 git clone https://github.com/<you>/bridge
 cd bridge
-cp .env.example .env   # add your Nebius / OpenAI key when not using stub
-docker compose up --build
+cp backend/.env.example backend/.env   # backend secrets: LLM key, DATABASE_URL
+cp .env.example .env                   # frontend + Compose settings
+docker build -t bridge . && docker run -p 8000:8000 --env-file backend/.env bridge
 ```
+
+- UI, API and Inngest on one origin: http://localhost:8000 (honours `$PORT`, e.g. on Railway)
+
+The older two-container stack still works with `docker compose up --build`:
 
 - UI: http://localhost:8080
 - Health (via nginx): http://localhost:8080/health
@@ -51,7 +56,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - API (direct): http://localhost:8000
 - Health: http://localhost:8000/health
 
-Env is centralized in the repo-root `.env` (see `.env.example`).
+Backend env lives in `backend/.env` (see `backend/.env.example`). The repo-root `.env` holds only frontend and Compose settings.
 
 ## Repo layout
 
