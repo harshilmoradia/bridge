@@ -3,6 +3,18 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.config import get_settings
 from app.main import create_app
+from app.api.auth import AuthContext, get_current_user
+from app.schemas.auth import AuthUser
+
+
+def authenticated_user() -> AuthContext:
+    return AuthContext(user=AuthUser(id="00000000-0000-0000-0000-000000000001", email="test@example.com"), token="test-token")
+
+
+@pytest.fixture(autouse=True)
+def authenticate_chat(app):
+    # Provider tests isolate chat behavior; test_auth.py exercises the real guard.
+    app.dependency_overrides[get_current_user] = authenticated_user
 
 
 @pytest.mark.asyncio
@@ -32,6 +44,7 @@ async def test_chat_openai_compatible_missing_key_503(
     monkeypatch.setenv("LLM_PROVIDER", "openai_compatible")
     monkeypatch.setenv("LLM_API_KEY", "")
     app = create_app()
+    app.dependency_overrides[get_current_user] = authenticated_user
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(

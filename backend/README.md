@@ -48,3 +48,11 @@ VITE_API_URL=http://localhost:8000
 ```bash
 uv run pytest
 ```
+
+## Supabase accounts
+
+Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env` and apply the profiles migration using [the setup guide](../docs/supabase-setup.md). A publishable or legacy anon key is sufficient; administrative keys are not used.
+
+`GET /api/v1/auth/me`, `PATCH /api/v1/profile` and `POST /api/v1/chat` require `Authorization: Bearer <user-access-token>`. The server verifies each token with Supabase Auth, requires a confirmed email account, and queries PostgREST using the caller's JWT to preserve RLS. Missing/invalid credentials return 401; unconfigured or unreachable account services return 503. `/health` remains public.
+
+Profile updates accept only `display_name` (1–100 characters). Authentication tests cover invalid tokens, profile isolation, forbidden update fields, upstream failures and the protected chat route. Signup, email confirmation and password recovery use the frontend's Supabase SDK rather than passing passwords through this backend.
