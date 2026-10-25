@@ -1,0 +1,112 @@
+Day,Transaction_ID,Date,Description,Amount,Type,Status,GL_Match,Scenario_Name
+1,BANK001,2026-10-01,Vendor Payment - Tech Solutions,1850.0,TRANSFER,Cleared,GL004,Regular
+1,BANK002,2026-10-01,Consulting Fee - Monthly,2500.0,TRANSFER,Cleared,GL005,Regular
+1,BANK003,2026-10-01,Customer Refund - Order #5432,425.0,CREDIT,Cleared,GL006,Regular
+1,BANK004,2026-10-01,Employee Reimbursement,320.0,TRANSFER,Cleared,GL007,Regular
+1,BANK005,2026-10-01,Utility Payment - Electric,680.0,CHECK,Cleared,GL008,Regular
+1,BANK006,2026-10-01,Insurance Premium,950.0,TRANSFER,Cleared,GL009,Regular
+1,BANK007,2026-10-01,Office Equipment Purchase,1200.0,CHECK,Cleared,GL010,Regular
+1,BANK008,2026-10-01,Maintenance & Repairs,450.0,TRANSFER,Cleared,GL011,Regular
+1,BANK009,2026-10-01,Check Payment - Duplicate,3200.0,CHECK,Cleared,GL002,Duplicate Transaction
+1,BANK010,2026-10-01,Vendor Payment - Widget Co,1850.0,TRANSFER,Cleared,GL014,Regular
+1,BANK011,2026-10-01,Office Lease Payment,3500.0,CHECK,Cleared,GL015,Regular
+2,BANK012,2026-10-02,Marketing Expense,2200.0,TRANSFER,Cleared,GL016,Regular
+2,BANK013,2026-10-02,Software License Renewal,800.0,CHECK,Cleared,GL017,Regular
+2,BANK014,2026-10-02,Supplies Purchase,575.0,TRANSFER,Cleared,GL018,Regular
+2,BANK015,2026-10-02,Client Reimbursement,1100.0,CREDIT,Cleared,GL019,Regular
+2,BANK016,2026-10-02,Bank Account Transfer,4000.0,TRANSFER,Cleared,GL020,Regular
+2,BANK017,2026-10-02,Equipment Rental,650.0,CHECK,Cleared,GL021,Regular
+2,BANK018,2026-10-02,Professional Services,2100.0,TRANSFER,Cleared,GL022,Regular
+2,BANK019,2026-10-02,Vendor Payment - Packaging,925.0,TRANSFER,Cleared,GL023,Regular
+2,BANK020,2026-10-02,Wire Transfer - Supplier Payment,8750.0,WIRE,Cleared,GL024,Regular
+3,BANK021,2026-10-03,Payroll Advance,1500.0,CHECK,Cleared,GL025,Regular
+3,BANK022,2026-10-03,Customer Refund - Return,500.0,CREDIT,Cleared,GL026,Regular
+3,BANK023,2026-10-03,Office Cleaning Service,350.0,TRANSFER,Cleared,GL027,Regular
+3,BANK024,2026-10-03,Travel Expense Reimbursement,1200.0,TRANSFER,Cleared,GL028,Regular
+3,BANK025,2026-10-03,Vendor Deposit - Future Services,2000.0,TRANSFER,Cleared,GL029,Regular
+3,BANK026,2026-10-03,Equipment Maintenance,425.0,CHECK,Cleared,GL030,Regular
+3,BANK027,2026-10-03,Consulting - Project ABC,3300.0,TRANSFER,Cleared,GL031,Regular
+3,BANK028,2026-10-03,Donation - Charity Event,500.0,CHECK,Cleared,GL032,Regular
+3,BANK029,2026-10-03,Product Purchase,1650.0,TRANSFER,Cleared,GL033,Regular
+3,BANK030,2026-10-03,Deposit - Customer Invoice #INV-001,5400.0,DEPOSIT,Cleared,GL012,Deposit in Transit
+3,BANK031,2026-10-03,Payroll ACH Transfer,12500.0,ACH,Cleared,GL013,ACH Timing
+3,BANK032,2026-10-03,Monthly Service Fee,-25.0,FEE,Cleared,,Bank Fees
+3,BANK033,2026-10-03,Widget Co Transfer,1234.51,TRANSFER,Cleared,GL045,Penny Rounding
+4,BANK034,2026-10-04,Vendor Payment - Bulk Order,5500.0,TRANSFER,Cleared,GL037,Regular
+4,BANK035,2026-10-04,Employee Bonus Distribution,2000.0,CHECK,Cleared,GL038,Regular
+4,BANK036,2026-10-04,Inventory Purchase,3200.0,TRANSFER,Cleared,GL039,Regular
+4,BANK037,2026-10-04,Rent Payment,4000.0,CHECK,Cleared,GL040,Regular
+4,BANK038,2026-10-04,Subscription Service,400.0,TRANSFER,Cleared,GL041,Regular
+4,BANK039,2026-10-04,Customer Advance - Prepayment,6000.0,DEPOSIT,Cleared,GL042,Regular
+4,BANK040,2026-10-04,Marketing Campaign,1800.0,TRANSFER,Cleared,GL043,Regular
+4,BANK041,2026-10-04,Repairs & Maintenance,750.0,CHECK,Cleared,GL044,Regular
+4,BANK042,2026-10-04,Interest Earned,12.5,INTEREST,Cleared,,Interest Earned
+4,BANK043,2026-10-04,Check Payment - Utilities,95.0,CHECK,Cleared,GL036,Check Out of Order
+5,BANK044,2026-10-05,Check Payment - Internet,180.0,CHECK,Cleared,GL035,Check Out of Order
+5,BANK045,2026-10-05,Check Payment - Phone,325.0,CHECK,Cleared,GL034,Check Out of Order
+5,BANK046,2026-10-05,Payroll Processing,11200.0,ACH,Cleared,GL048,Regular
+5,BANK047,2026-10-05,Office Supplies,620.0,CHECK,Cleared,GL049,Regular
+5,BANK048,2026-10-05,Client Entertainment,850.0,TRANSFER,Cleared,GL050,Regular
+5,BANK049,2026-10-05,Insurance - Additional Coverage,1200.0,TRANSFER,Cleared,GL051,Regular
+5,BANK050,2026-10-05,Vendor Discount Applied,-350.0,CREDIT,Cleared,GL052,Regular
+5,BANK051,2026-10-05,Equipment Lease,1500.0,CHECK,Cleared,GL053,Regular
+5,BANK052,2026-10-05,Training & Development,2500.0,TRANSFER,Cleared,GL054,Regular
+5,BANK053,2026-10-05,Freight & Shipping,875.0,TRANSFER,Cleared,GL055,Regular
+5,BANK054,2026-10-05,Check Payment - Office Supplies,750.0,CHECK,Cleared,GL001,Outstanding Check
+5,BANK055,2026-10-05,Sales Return - Refund,485.0,CREDIT,Cleared,GL046,Partial Refund
+5,BANK056,2026-10-05,Returned Check NSF,950.0,DEBIT,Cleared,GL047,NSF Reversal
+6,BANK057,2026-10-06,Deposit - Evening Cash,2800.0,DEPOSIT,Cleared,GL056,Regular
+6,BANK058,2026-10-06,Payment - Contractor Invoice,3500.0,CHECK,Cleared,GL057,Regular
+6,BANK059,2026-10-06,Vendor Payment - Emergency Supplies,1950.0,TRANSFER,Cleared,GL058,Regular
+6,BANK060,2026-10-06,Refund to Customer,650.0,CREDIT,Cleared,GL059,Regular
+6,BANK061,2026-10-06,ACH Payroll - Bi-Weekly,13500.0,ACH,Cleared,GL060,Regular
+6,BANK062,2026-10-06,Office Furniture Purchase,2200.0,CHECK,Cleared,GL061,Regular
+6,BANK063,2026-10-06,Conference Registration,1500.0,TRANSFER,Cleared,GL062,Regular
+6,BANK064,2026-10-06,Toll & Transportation,125.0,TRANSFER,Cleared,GL063,Regular
+6,BANK065,2026-10-06,Security System Monitoring,300.0,CHECK,Cleared,GL064,Regular
+6,BANK066,2026-10-06,Vendor Rebate Received,-500.0,CREDIT,Cleared,GL065,Regular
+6,BANK067,2026-10-06,Software Support Contract,800.0,TRANSFER,Cleared,GL066,Regular
+7,BANK068,2026-10-07,Wire Transfer - Supplier XYZ,8900.0,WIRE,Cleared,GL067,Regular
+7,BANK069,2026-10-07,Inventory Adjustment,1200.0,TRANSFER,Cleared,GL068,Regular
+7,BANK070,2026-10-07,Employee Salary,8500.0,ACH,Cleared,GL069,Regular
+7,BANK071,2026-10-07,Utility - Water & Sewer,420.0,CHECK,Cleared,GL070,Regular
+7,BANK072,2026-10-07,Petty Cash Replenishment,500.0,TRANSFER,Cleared,GL071,Regular
+7,BANK073,2026-10-07,Office Supply Order,680.0,CHECK,Cleared,GL072,Regular
+7,BANK074,2026-10-07,Customer Deposit Received,4500.0,DEPOSIT,Cleared,GL073,Regular
+7,BANK075,2026-10-07,Vendor Late Payment Penalty,150.0,TRANSFER,Cleared,GL074,Regular
+7,BANK076,2026-10-07,IT Support Services,2000.0,TRANSFER,Cleared,GL075,Regular
+7,BANK077,2026-10-07,Equipment Upgrade,3100.0,CHECK,Cleared,GL076,Regular
+7,BANK078,2026-10-07,Annual Membership Renewal,450.0,TRANSFER,Cleared,GL077,Regular
+8,BANK079,2026-10-08,Deposit - Vendor Refund,1500.0,DEPOSIT,Cleared,GL078,Regular
+8,BANK080,2026-10-08,Returned Check NSF - Reversal,-950.0,DEBIT,Cleared,GL079,NSF Reversal
+8,BANK081,2026-10-08,Consulting Payment,2400.0,CHECK,Cleared,GL080,Regular
+8,BANK082,2026-10-08,Inventory Purchase,4200.0,TRANSFER,Cleared,GL081,Regular
+8,BANK083,2026-10-08,Payroll Taxes,3200.0,ACH,Cleared,GL082,Regular
+8,BANK084,2026-10-08,Office Lease,3500.0,CHECK,Cleared,GL083,Regular
+8,BANK085,2026-10-08,Marketing Expense,1600.0,TRANSFER,Cleared,GL084,Regular
+8,BANK086,2026-10-08,Customer Refund,300.0,CREDIT,Cleared,GL085,Regular
+8,BANK087,2026-10-08,Building Maintenance,850.0,CHECK,Cleared,GL086,Regular
+8,BANK088,2026-10-08,Professional Development,1250.0,TRANSFER,Cleared,GL087,Regular
+8,BANK089,2026-10-08,Shipping & Logistics,950.0,TRANSFER,Cleared,GL088,Regular
+9,BANK090,2026-10-09,Deposit - Daily Sales,3600.0,DEPOSIT,Cleared,GL089,Regular
+9,BANK091,2026-10-09,Vendor Payment,2100.0,CHECK,Cleared,GL090,Regular
+9,BANK092,2026-10-09,ACH Payment - Utilities,525.0,ACH,Cleared,GL091,Regular
+9,BANK093,2026-10-09,Equipment Rental,800.0,TRANSFER,Cleared,GL092,Regular
+9,BANK094,2026-10-09,Client Reimbursement,450.0,CREDIT,Cleared,GL093,Regular
+9,BANK095,2026-10-09,Office Supplies,380.0,CHECK,Cleared,GL094,Regular
+9,BANK096,2026-10-09,Insurance Claim Reimbursement,5000.0,DEPOSIT,Cleared,GL095,Regular
+9,BANK097,2026-10-09,Contractor Invoice,3800.0,TRANSFER,Cleared,GL096,Regular
+9,BANK098,2026-10-09,Software Updates,600.0,CHECK,Cleared,GL097,Regular
+9,BANK099,2026-10-09,Employee Travel Reimbursement,2200.0,TRANSFER,Cleared,GL098,Regular
+9,BANK100,2026-10-09,Miscellaneous Expense,275.0,TRANSFER,Cleared,GL099,Regular
+10,BANK101,2026-10-10,Deposit - Monthly Collections,7200.0,DEPOSIT,Cleared,GL100,Regular
+10,BANK102,2026-10-10,Lease Payment,3500.0,CHECK,Cleared,GL101,Regular
+10,BANK103,2026-10-10,Payroll Processing,12000.0,ACH,Cleared,GL102,Regular
+10,BANK104,2026-10-10,Inventory Purchase,2800.0,TRANSFER,Cleared,GL103,Regular
+10,BANK105,2026-10-10,Vendor Payment - Services,1950.0,CHECK,Cleared,GL104,Regular
+10,BANK106,2026-10-10,Office Equipment,2400.0,TRANSFER,Cleared,GL105,Regular
+10,BANK107,2026-10-10,Customer Refund,175.0,CREDIT,Cleared,GL106,Regular
+10,BANK108,2026-10-10,Insurance Premium,1800.0,CHECK,Cleared,GL107,Regular
+10,BANK109,2026-10-10,Travel & Meals,1100.0,TRANSFER,Cleared,GL108,Regular
+10,BANK110,2026-10-10,Supplies,520.0,CHECK,Cleared,GL109,Regular
+10,BANK111,2026-10-10,Professional Fees,2200.0,TRANSFER,Cleared,GL110,Regular

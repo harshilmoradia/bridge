@@ -3,11 +3,13 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import inngest.fast_api
 
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import setup_logging
+from app.workflows import functions, inngest_client
 
 
 @asynccontextmanager
@@ -29,6 +31,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
+    inngest.fast_api.serve(app, inngest_client, functions)  # serves /api/inngest
     return app
 
 

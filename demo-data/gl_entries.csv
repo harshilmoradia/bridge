@@ -1,0 +1,115 @@
+entry_id,date,description,amount,method,check_number,account,counter_account,counterparty
+GL001,2026-10-01,Check Payment - Office Supplies - DeskPro Supply,-750.00,CHECK,4521,1010,6500,DeskPro Supply
+GL002,2026-10-01,Invoice payment - Granite Mutual Insurance INV-7731,-3200.00,CHECK,2847,1010,2000,Granite Mutual Insurance
+GL003,2026-10-01,Invoice payment - Granite Mutual Insurance INV-7731,-3200.00,CHECK,2847,1010,2000,Granite Mutual Insurance
+GL004,2026-10-01,Vendor Payment - Tech Solutions - Tech Solutions Inc.,-1850.00,TRANSFER,,1010,2000,Tech Solutions Inc.
+GL005,2026-10-01,Consulting Fee - Monthly - Harbor Consulting Group,-2500.00,TRANSFER,,1010,6300,Harbor Consulting Group
+GL006,2026-10-01,Customer Refund - Order #5432 - Lakeside Cafe,-425.00,CREDIT,,1010,4900,Lakeside Cafe
+GL007,2026-10-01,Employee Reimbursement - Sarah Patel,-320.00,TRANSFER,,1010,6750,Sarah Patel
+GL008,2026-10-01,Utility Payment - Electric - Prairie Gas & Light,-680.00,CHECK,3105,1010,6100,Prairie Gas & Light
+GL009,2026-10-01,Insurance Premium - Granite Mutual Insurance,-950.00,TRANSFER,,1010,6700,Granite Mutual Insurance
+GL010,2026-10-01,Office Equipment Purchase - DeskPro Supply,-1200.00,CHECK,3106,1010,1500,DeskPro Supply
+GL011,2026-10-01,Maintenance & Repairs - Keystone Facility Services,-450.00,TRANSFER,,1010,6600,Keystone Facility Services
+GL012,2026-10-02,Deposit - Customer Invoice #INV-001 - Acme Retail Group,5400.00,DEPOSIT,,1010,1200,Acme Retail Group
+GL013,2026-10-02,Payroll ACH Transfer - PayFlow Payroll Services,-12500.00,ACH,,1010,6200,PayFlow Payroll Services
+GL014,2026-10-02,Vendor Payment - Widget Co - Widget Co.,-1850.00,TRANSFER,,1010,2000,Widget Co.
+GL015,2026-10-02,Office Lease Payment - Lakeview Properties LLC,-3500.00,CHECK,3107,1010,6000,Lakeview Properties LLC
+GL016,2026-10-02,Marketing Expense - BrightPath Media,-2200.00,TRANSFER,,1010,6400,BrightPath Media
+GL017,2026-10-02,Software License Renewal - CloudLedger Software,-800.00,CHECK,3108,1010,6510,CloudLedger Software
+GL018,2026-10-02,Supplies Purchase - DeskPro Supply,-575.00,TRANSFER,,1010,6500,DeskPro Supply
+GL019,2026-10-02,Client Reimbursement - Acme Retail Group,1100.00,CREDIT,,1010,4200,Acme Retail Group
+GL020,2026-10-02,Bank Account Transfer - Transfer to Savings x8802,-4000.00,TRANSFER,,1010,1020,Transfer to Savings x8802
+GL021,2026-10-02,Equipment Rental - Midwest Equipment Rentals,-650.00,CHECK,3109,1010,6000,Midwest Equipment Rentals
+GL022,2026-10-02,Professional Services - Mason & Reed CPAs,-2100.00,TRANSFER,,1010,6300,Mason & Reed CPAs
+GL023,2026-10-03,Vendor payment - BoxCraft Packaging INV-3381,-952.00,TRANSFER,,1010,2000,BoxCraft Packaging
+GL024,2026-10-03,Wire Transfer - Supplier Payment - Xiamen Pacific Trading,-8750.00,WIRE,,1010,2000,Xiamen Pacific Trading
+GL025,2026-10-03,Payroll Advance - Payroll advance - James Wilson,-1500.00,CHECK,3110,1010,1350,Payroll advance - James Wilson
+GL026,2026-10-03,Customer Refund - Return - Northwind Outfitters,-500.00,CREDIT,,1010,4900,Northwind Outfitters
+GL027,2026-10-03,Office Cleaning Service - SparkleClean Services,-350.00,TRANSFER,,1010,6600,SparkleClean Services
+GL028,2026-10-03,Travel Expense Reimbursement - David Okafor,-1200.00,TRANSFER,,1010,6750,David Okafor
+GL029,2026-10-03,Vendor Deposit - Future Services - Keystone Facility Services,-2000.00,TRANSFER,,1010,1300,Keystone Facility Services
+GL030,2026-10-03,Equipment Maintenance - ProServ Equipment Repair,-425.00,CHECK,3111,1010,6600,ProServ Equipment Repair
+GL031,2026-10-03,Consulting - Project ABC - Harbor Consulting Group,-3300.00,TRANSFER,,1010,6300,Harbor Consulting Group
+GL032,2026-10-03,Donation - Charity Event - Riverbend Food Pantry,-500.00,CHECK,3112,1010,6900,Riverbend Food Pantry
+GL033,2026-10-03,Product Purchase - Widget Co.,-1650.00,TRANSFER,,1010,5000,Widget Co.
+GL034,2026-10-04,Check Payment - Utilities - Metro Water & Sewer,-325.00,CHECK,1001,1010,6100,Metro Water & Sewer
+GL035,2026-10-04,Check Payment - Internet - FiberLink Internet,-180.00,CHECK,1003,1010,6150,FiberLink Internet
+GL036,2026-10-04,Check Payment - Phone - Lakeshore Telecom,-95.00,CHECK,1005,1010,6150,Lakeshore Telecom
+GL037,2026-10-04,Vendor Payment - Bulk Order - Widget Co.,-5500.00,TRANSFER,,1010,2000,Widget Co.
+GL038,2026-10-04,Employee Bonus Distribution - Employee bonus - Maria Gonzalez,-2000.00,CHECK,3113,1010,6200,Employee bonus - Maria Gonzalez
+GL039,2026-10-04,Inventory Purchase - Widget Co.,-3200.00,TRANSFER,,1010,5000,Widget Co.
+GL040,2026-10-04,Rent Payment - Lakeview Properties LLC,-4000.00,CHECK,3114,1010,6000,Lakeview Properties LLC
+GL041,2026-10-04,Subscription Service - StreamDesk,-400.00,TRANSFER,,1010,6510,StreamDesk
+GL042,2026-10-04,Customer Advance - Prepayment - Northwind Outfitters,6000.00,DEPOSIT,,1010,2300,Northwind Outfitters
+GL043,2026-10-04,Marketing Campaign - BrightPath Media,-1800.00,TRANSFER,,1010,6400,BrightPath Media
+GL044,2026-10-04,Repairs & Maintenance - ProServ Equipment Repair,-750.00,CHECK,3115,1010,6600,ProServ Equipment Repair
+GL045,2026-10-05,Vendor payment - Widget Co. INV-5520,-1234.50,TRANSFER,,1010,2000,Widget Co.
+GL046,2026-10-05,Sales Return - Refund - Acme Retail Group,-485.00,CREDIT,,1010,4900,Acme Retail Group
+GL047,2026-10-05,Deposit - customer check #3116 Lakeside Cafe,950.00,DEPOSIT,,1010,1200,Lakeside Cafe
+GL048,2026-10-05,Payroll Processing - PayFlow Payroll Services,-11200.00,ACH,,1010,6200,PayFlow Payroll Services
+GL049,2026-10-05,Office Supplies - DeskPro Supply,-620.00,CHECK,3117,1010,6500,DeskPro Supply
+GL050,2026-10-05,Client Entertainment - Rosewood Steakhouse,-850.00,TRANSFER,,1010,6750,Rosewood Steakhouse
+GL051,2026-10-05,Insurance - Additional Coverage - Granite Mutual Insurance,-1200.00,TRANSFER,,1010,6700,Granite Mutual Insurance
+GL052,2026-10-05,Vendor Discount Applied - Widget Co.,-350.00,CREDIT,,1010,5000,Widget Co.
+GL053,2026-10-05,Equipment Lease - Midwest Equipment Leasing,-1500.00,CHECK,3118,1010,6000,Midwest Equipment Leasing
+GL054,2026-10-05,Training & Development - SkillForge Academy,-2500.00,TRANSFER,,1010,6760,SkillForge Academy
+GL055,2026-10-05,Freight & Shipping - Swift Lane Freight,-875.00,TRANSFER,,1010,6850,Swift Lane Freight
+GL056,2026-10-06,Deposit - Evening Cash - Evening cash deposit,2800.00,DEPOSIT,,1010,4000,Evening cash deposit
+GL057,2026-10-06,Payment - Contractor Invoice - Brightline Contracting,-3500.00,CHECK,3119,1010,6300,Brightline Contracting
+GL058,2026-10-06,Vendor Payment - Emergency Supplies - DeskPro Supply,-1950.00,TRANSFER,,1010,2000,DeskPro Supply
+GL059,2026-10-06,Refund to Customer - Lakeside Cafe,-650.00,CREDIT,,1010,4900,Lakeside Cafe
+GL060,2026-10-06,ACH Payroll - Bi-Weekly - PayFlow Payroll Services,-13500.00,ACH,,1010,6200,PayFlow Payroll Services
+GL061,2026-10-06,Office Furniture Purchase - Oak & Iron Furniture,-2200.00,CHECK,3120,1010,1500,Oak & Iron Furniture
+GL062,2026-10-06,Conference Registration - RetailTech Summit 2026,-1500.00,TRANSFER,,1010,6760,RetailTech Summit 2026
+GL063,2026-10-06,Toll & Transportation - State Tollway,-125.00,TRANSFER,,1010,6750,State Tollway
+GL064,2026-10-06,Security System Monitoring - Sentinel Alarm Co.,-300.00,CHECK,3121,1010,6600,Sentinel Alarm Co.
+GL065,2026-10-06,Vendor Rebate Received - Widget Co.,-500.00,CREDIT,,1010,5000,Widget Co.
+GL066,2026-10-06,Software Support Contract - CloudLedger Software,-800.00,TRANSFER,,1010,6510,CloudLedger Software
+GL067,2026-10-07,Wire Transfer - Supplier XYZ - XYZ Industrial Supply,-8900.00,WIRE,,1010,2000,XYZ Industrial Supply
+GL068,2026-10-07,Inventory Adjustment - Widget Co.,-1200.00,TRANSFER,,1010,5000,Widget Co.
+GL069,2026-10-07,Employee Salary - Michael Chen,-8500.00,ACH,,1010,6200,Michael Chen
+GL070,2026-10-07,Utility - Water & Sewer - Metro Water & Sewer,-420.00,CHECK,3122,1010,6100,Metro Water & Sewer
+GL071,2026-10-07,Petty Cash Replenishment,-500.00,TRANSFER,,1010,6990,Petty cash
+GL072,2026-10-07,Office Supply Order - DeskPro Supply,-680.00,CHECK,3123,1010,6500,DeskPro Supply
+GL073,2026-10-07,Customer Deposit Received - Northwind Outfitters,4500.00,DEPOSIT,,1010,2300,Northwind Outfitters
+GL074,2026-10-07,Vendor Late Payment Penalty - Swift Lane Freight,-150.00,TRANSFER,,1010,6950,Swift Lane Freight
+GL075,2026-10-07,IT Support Services - Tech Solutions Inc.,-2000.00,TRANSFER,,1010,6300,Tech Solutions Inc.
+GL076,2026-10-07,Equipment Upgrade - Tech Solutions Inc.,-3100.00,CHECK,3124,1010,1500,Tech Solutions Inc.
+GL077,2026-10-07,Annual Membership Renewal - Midwest Retailers Assn,-450.00,TRANSFER,,1010,6510,Midwest Retailers Assn
+GL111,2026-10-07,Customer payment INV-1042 - Acme Retail Group,1200.00,DEPOSIT,,1010,1200,Acme Retail Group
+GL112,2026-10-07,Customer payment INV-1043 - Northwind Outfitters,850.00,DEPOSIT,,1010,1200,Northwind Outfitters
+GL113,2026-10-07,Customer payment INV-1044 - Lakeside Cafe,2150.00,DEPOSIT,,1010,1200,Lakeside Cafe
+GL078,2026-10-08,Deposit - Vendor Refund - Widget Co.,1500.00,DEPOSIT,,1010,5000,Widget Co.
+GL079,2026-10-08,NSF reversal - customer check #3116 Lakeside Cafe,-950.00,RETURNED_ITEM,,1010,1200,Lakeside Cafe
+GL080,2026-10-08,Consulting Payment - Elm Street Advisors,-2400.00,CHECK,3125,1010,6300,Elm Street Advisors
+GL081,2026-10-08,Inventory Purchase - Widget Co.,-4200.00,TRANSFER,,1010,5000,Widget Co.
+GL082,2026-10-08,Payroll Taxes - IRS EFTPS,-3200.00,ACH,,1010,6210,IRS EFTPS
+GL083,2026-10-08,Office Lease - Lakeview Properties LLC,-3500.00,CHECK,3126,1010,6000,Lakeview Properties LLC
+GL084,2026-10-08,Marketing Expense - BrightPath Media,-1600.00,TRANSFER,,1010,6400,BrightPath Media
+GL085,2026-10-08,Customer Refund - Acme Retail Group,-300.00,CREDIT,,1010,4900,Acme Retail Group
+GL086,2026-10-08,Building Maintenance - Keystone Facility Services,-850.00,CHECK,3127,1010,6600,Keystone Facility Services
+GL087,2026-10-08,Professional Development - SkillForge Academy,-1250.00,TRANSFER,,1010,6760,SkillForge Academy
+GL088,2026-10-08,Shipping & Logistics - Swift Lane Freight,-950.00,TRANSFER,,1010,6850,Swift Lane Freight
+GL089,2026-10-09,Deposit - Daily Sales - Daily sales deposit,3600.00,DEPOSIT,,1010,4000,Daily sales deposit
+GL090,2026-10-09,Vendor Payment - Widget Co.,-2100.00,CHECK,3128,1010,2000,Widget Co.
+GL091,2026-10-09,ACH Payment - Utilities - Prairie Gas & Light,-525.00,ACH,,1010,6100,Prairie Gas & Light
+GL092,2026-10-09,Equipment Rental - Midwest Equipment Rentals,-800.00,TRANSFER,,1010,6000,Midwest Equipment Rentals
+GL093,2026-10-09,Client Reimbursement - Acme Retail Group,450.00,CREDIT,,1010,4200,Acme Retail Group
+GL094,2026-10-09,Office Supplies - DeskPro Supply,-380.00,CHECK,3129,1010,6500,DeskPro Supply
+GL095,2026-10-09,Insurance Claim Reimbursement - Granite Mutual Insurance,5000.00,DEPOSIT,,1010,4200,Granite Mutual Insurance
+GL096,2026-10-09,Contractor Invoice - Brightline Contracting,-3800.00,TRANSFER,,1010,6300,Brightline Contracting
+GL097,2026-10-09,Software Updates - CloudLedger Software,-600.00,CHECK,3130,1010,6510,CloudLedger Software
+GL098,2026-10-09,Employee Travel Reimbursement - David Okafor,-2200.00,TRANSFER,,1010,6750,David Okafor
+GL099,2026-10-09,Miscellaneous Expense,-275.00,TRANSFER,,1010,6990,Various
+GL100,2026-10-10,Deposit - Monthly Collections - Monthly AR collections,7200.00,DEPOSIT,,1010,1200,Monthly AR collections
+GL101,2026-10-10,Lease Payment - Lakeview Properties LLC,-3500.00,CHECK,3131,1010,6000,Lakeview Properties LLC
+GL102,2026-10-10,Payroll Processing - PayFlow Payroll Services,-12000.00,ACH,,1010,6200,PayFlow Payroll Services
+GL103,2026-10-10,Inventory Purchase - Widget Co.,-2800.00,TRANSFER,,1010,5000,Widget Co.
+GL104,2026-10-10,Vendor Payment - Services - Keystone Facility Services,-1950.00,CHECK,3132,1010,2000,Keystone Facility Services
+GL105,2026-10-10,Office Equipment - DeskPro Supply,-2400.00,TRANSFER,,1010,1500,DeskPro Supply
+GL106,2026-10-10,Customer Refund - Acme Retail Group,-175.00,CREDIT,,1010,4900,Acme Retail Group
+GL107,2026-10-10,Insurance Premium - Granite Mutual Insurance,-1800.00,CHECK,3133,1010,6700,Granite Mutual Insurance
+GL108,2026-10-10,Travel & Meals,-1100.00,TRANSFER,,1010,6750,Various
+GL109,2026-10-10,Supplies - DeskPro Supply,-520.00,CHECK,3134,1010,6500,DeskPro Supply
+GL110,2026-10-10,Professional Fees - Mason & Reed CPAs,-2200.00,TRANSFER,,1010,6300,Mason & Reed CPAs
+GL114,2026-10-10,Deposit - daily sales Oct 10,3275.40,DEPOSIT,,1010,4000,Daily sales deposit

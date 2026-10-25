@@ -1,0 +1,13 @@
+{
+  "company": "Northbrook Goods Co.",
+  "cash_account": "1010",
+  "bank_account_mask": "****6021",
+  "currency": "USD",
+  "period_start": "2026-10-01",
+  "period_end": "2026-10-10",
+  "bank_opening_balance": "214850.00",
+  "bank_closing_balance": "48547.99",
+  "gl_opening_balance": "214850.00",
+  "gl_closing_balance": "47683.90",
+  "sign_convention": "Positive = money into the bank account (cash debit). Negative = money out."
+}
