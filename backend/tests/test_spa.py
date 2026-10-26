@@ -52,3 +52,49 @@ async def test_unknown_api_path_is_json_404(spa_client):
 async def test_path_traversal_blocked(spa_client):
     response = await spa_client.get("/..%2F..%2Fetc%2Fpasswd")
     assert "root:" not in response.text
+
+
+async def test_missing_asset_is_404(spa_client):
+    response = await spa_client.get("/assets/missing.js")
+    assert response.status_code == 404
+    assert "id=root" not in response.text
+
+
+async def test_path_sharing_backend_prefix_falls_back_to_index(spa_client):
+    response = await spa_client.get("/healthcheck")
+    assert response.status_code == 200
+    assert "id=root" in response.text
+
+
+async def test_extra_leading_slash_missing_asset_is_404(spa_client):
+    response = await spa_client.get("http://test//assets/missing.js")
+    assert response.status_code == 404
+    assert "id=root" not in response.text
+
+
+async def test_extra_leading_slash_api_path_is_json_404(spa_client):
+    response = await spa_client.get("http://test//api/v1/x")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Not Found"}
+
+
+async def test_extra_leading_slash_health_is_not_spa(spa_client):
+    response = await spa_client.get("http://test//health")
+    assert "id=root" not in response.text
+
+
+async def test_extra_leading_slash_client_route_falls_back_to_index(spa_client):
+    response = await spa_client.get("http://test//runs/abc")
+    assert response.status_code == 200
+    assert "id=root" in response.text
+
+
+async def test_extra_leading_slash_absolute_path_not_served(spa_client):
+    response = await spa_client.get("http://test//etc/passwd")
+    assert "root:" not in response.text
+
+
+async def test_unknown_path_under_health_is_json_404(spa_client):
+    response = await spa_client.get("/health/nope")
+    assert response.status_code == 404
+    assert "id=root" not in response.text
