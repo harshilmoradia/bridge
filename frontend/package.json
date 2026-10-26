@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src vite.config.ts --deny-warnings",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test tests/transactions.test.ts tests/auth.test.ts tests/profiles.test.mjs"
+    "test": "node --experimental-strip-types --test tests/transactions.test.ts tests/money.test.ts tests/auth.test.ts tests/profiles.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

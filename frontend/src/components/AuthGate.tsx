@@ -21,6 +21,14 @@ function authError(error: unknown): string {
     return 'We couldn’t complete that request. Please try again.';
 }
 
+// Drop cached data in the same step that changes identity, so no child renders or fetches against the old user's cache.
+let identityKey = '';
+function switchIdentity(key: string) {
+    if (identityKey === key) return;
+    identityKey = key;
+    queryClient.clear();
+}
+
 interface AuthGateProps {
     children: (identity: Identity, signOut: () => Promise<void>, signingOut: boolean) => ReactNode;
 }
@@ -48,6 +56,7 @@ export function AuthGate({ children }: AuthGateProps) {
         }
         const { data: { subscription } } = client.auth.onAuthStateChange((event, nextSession) => {
             if (!active) return;
+            switchIdentity(nextSession?.user.id ?? '');
             setSession(nextSession);
             setLoading(false);
             if (event === 'PASSWORD_RECOVERY' || (event === 'INITIAL_SESSION' && recoveryRequested && nextSession)) {
@@ -62,6 +71,7 @@ export function AuthGate({ children }: AuthGateProps) {
             }
             if (event === 'SIGNED_OUT') {
                 setRecovering(false);
+                switchIdentity('');
                 setDemo(false);
                 setMode('login');
                 setProfileResult(null);
@@ -101,9 +111,6 @@ export function AuthGate({ children }: AuthGateProps) {
         return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
     }, [userId, recovering, demo, profileAttempt]);
 
-    // Drop cached data whenever the identity changes (sign-out, sign-in as another user, demo toggle).
-    useEffect(() => { queryClient.clear(); }, [userId, demo]);
-
     const changeMode = (next: AuthMode) => {
         setMode(next);
         setError('');
@@ -115,7 +122,7 @@ export function AuthGate({ children }: AuthGateProps) {
         setBusy(true);
         setError('');
         try {
-            if (demo) setDemo(false);
+            if (demo) { switchIdentity(''); setDemo(false); }
             else if (supabase) {
                 const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
                 if (signOutError) throw signOutError;
@@ -188,5 +195,5 @@ export function AuthGate({ children }: AuthGateProps) {
         </AuthShell>;
     }
     return <LoginScreen key={mode} configured={Boolean(supabase)} mode={mode} busy={busy} error={error} notice={notice} onModeChange={changeMode} onSubmit={submit}
-        onDemo={() => { setDemo(true); setError(''); setNotice(''); }} onCancelRecovery={() => void signOut()} />;
+        onDemo={() => { switchIdentity('demo'); setDemo(true); setError(''); setNotice(''); }} onCancelRecovery={() => void signOut()} />;
 }

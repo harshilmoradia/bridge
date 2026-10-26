@@ -1,0 +1,71 @@
+{
+  "item": {
+    "id": "0b6d1f1e-6c55-4f0a-8a51-1d1d7f3f0002",
+    "run_id": "6f1c2a9e-3b7d-4c51-9a8e-2d4f0b1e7a10",
+    "kind": "bank_fee_missing_in_gl",
+    "resolution": "escalate",
+    "status": "approved",
+    "bank_ids": ["BANK032"],
+    "gl_ids": [],
+    "amount_delta": "-25.00",
+    "reasoning": "The bank charged a 25.00 monthly service fee on Oct 3 that is not in the GL. Policy always escalates bank fees.",
+    "evidence": [
+      {"type": "bank_transaction", "id": "BANK032", "note": "MONTHLY SERVICE FEE"},
+      {"type": "policy", "id": "always_escalate_kinds", "note": null}
+    ],
+    "flags": [],
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "confidence": 0.94,
+    "rule_id": null,
+    "proposed_entry": {
+      "id": "5c0e7d3a-91b2-4d8e-b6f4-0a7c2e9d0002",
+      "debit_account": "6800",
+      "credit_account": "1010",
+      "amount": "25.00",
+      "memo": "Record October monthly service fee",
+      "status": "approved"
+    },
+    "created_at": "2026-10-26T15:00:56Z"
+  },
+  "statement": {
+    "dataset": "northbrook-2026-10",
+    "run_id": "6f1c2a9e-3b7d-4c51-9a8e-2d4f0b1e7a10",
+    "company": "Northbrook Goods Co.",
+    "cash_account": "1010",
+    "period_start": "2026-10-01",
+    "period_end": "2026-10-10",
+    "raw_difference": "864.09",
+    "bank": {
+      "closing_balance": "48547.99",
+      "lines": [],
+      "adjusted_balance": "48547.99"
+    },
+    "book": {
+      "closing_balance": "47683.90",
+      "lines": [
+        {
+          "item_id": "0b6d1f1e-6c55-4f0a-8a51-1d1d7f3f0002",
+          "kind": "bank_fee_missing_in_gl",
+          "label": "Bank service fee not in GL",
+          "amount": "-25.00",
+          "status": "approved",
+          "applied": true,
+          "bank_ids": ["BANK032"],
+          "gl_ids": []
+        },
+        {
+          "item_id": "0b6d1f1e-6c55-4f0a-8a51-1d1d7f3f0003",
+          "kind": "interest_missing_in_gl",
+          "label": "Interest not in GL",
+          "amount": "12.50",
+          "status": "needs_approval",
+          "applied": false,
+          "bank_ids": ["BANK042"],
+          "gl_ids": []
+        }
+      ],
+      "adjusted_balance": "47658.90"
+    },
+    "unreconciled_difference": "889.09"
+  }
+}

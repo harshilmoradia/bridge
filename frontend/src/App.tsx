@@ -3,14 +3,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthGate } from './components/AuthGate';
 import { AppLayout } from './components/AppLayout';
 import { queryClient } from './lib/queryClient';
-import { BankPage, LedgerPage, NotFoundPage, ReconcilePage, ReportPage, RunPage } from './pages/Placeholders';
+import { BankPage, LedgerPage, NotFoundPage, ReconcilePage, ReportPage, RunPage } from './pages/Pages';
 
 export default function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <AuthGate>
                 {(identity, signOut, signingOut) => (
-                    <BrowserRouter>
+                    <BrowserRouter key={identity.id}>
                         <Routes>
                             <Route element={<AppLayout key={identity.id} userName={identity.displayName} userEmail={identity.email} signOut={() => void signOut()} signingOut={signingOut} />}>
                                 <Route index element={<Navigate to="/reconcile" replace />} />
