@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { AuthShell, LoginScreen } from './LoginScreen';
 import { supabase } from '../lib/supabase';
+import { queryClient } from '../lib/queryClient';
 import type { AuthFields, AuthMode, Identity, Profile } from '../lib/auth';
 
 function clearRecoveryUrl() {
@@ -99,6 +100,9 @@ export function AuthGate({ children }: AuthGateProps) {
             .finally(() => window.clearTimeout(timeout));
         return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
     }, [userId, recovering, demo, profileAttempt]);
+
+    // Drop cached data whenever the identity changes (sign-out, sign-in as another user, demo toggle).
+    useEffect(() => { queryClient.clear(); }, [userId, demo]);
 
     const changeMode = (next: AuthMode) => {
         setMode(next);
