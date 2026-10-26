@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase';
+
 export class ApiError extends Error {
     readonly code: string;
     readonly status: number;
@@ -35,12 +37,21 @@ async function toApiError(response: Response): Promise<ApiError> {
     return new ApiError('http_error', `Request failed (${response.status})`, response.status);
 }
 
+// Signed-in users send their Supabase access token; demo mode has no session and sends none.
+async function authHeader(): Promise<Record<string, string>> {
+    if (!supabase) return {};
+    try {
+        const { data } = await supabase.auth.getSession();
+        return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+    } catch { return {}; }
+}
+
 export async function liveRequest<T>(path: string, { method = 'GET', query, body, signal }: RequestOptions = {}): Promise<T> {
     let response: Response;
+    const headers = { ...(await authHeader()), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) };
     try {
         response = await fetch(BASE + withQuery(path, query), {
-            method, signal,
-            headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+            method, signal, headers,
             body: body === undefined ? undefined : JSON.stringify(body),
         });
     } catch (error) {

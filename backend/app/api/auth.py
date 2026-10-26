@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import Settings, get_settings
@@ -40,11 +40,15 @@ async def get_user_or_demo(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     service: SupabaseService = Depends(get_supabase_service),
     settings: Settings = Depends(get_settings),
+    authorization: str | None = Header(default=None),
 ) -> AuthContext:
     """Guard for the v1 demo routers. No header plus PUBLIC_DEMO_API gives the demo user.
 
-    A token that is sent is always verified, so a bad token is a 401, never a silent demo fallback.
+    A header that is sent is always verified, so a bad token or a malformed header (`Basic ...`,
+    an empty `Bearer `) is a 401, never a silent demo fallback.
     """
+    if authorization is not None and credentials is None:
+        raise AppError(code="unauthenticated", message="Invalid Authorization header", status_code=401)
     if credentials is None and settings.public_demo_api:
         return AuthContext(user=DEMO_USER)
     return await get_current_user(credentials, service)
