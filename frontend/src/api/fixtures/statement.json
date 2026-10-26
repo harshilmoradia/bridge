@@ -1,0 +1,20 @@
+{
+  "dataset": "northbrook-2026-10",
+  "run_id": null,
+  "company": "Northbrook Goods Co.",
+  "cash_account": "1010",
+  "period_start": "2026-10-01",
+  "period_end": "2026-10-10",
+  "raw_difference": "864.09",
+  "bank": {
+    "closing_balance": "48547.99",
+    "lines": [],
+    "adjusted_balance": "48547.99"
+  },
+  "book": {
+    "closing_balance": "47683.90",
+    "lines": [],
+    "adjusted_balance": "47683.90"
+  },
+  "unreconciled_difference": "864.09"
+}
