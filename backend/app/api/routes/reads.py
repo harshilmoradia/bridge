@@ -106,4 +106,4 @@ async def get_statement(
 ) -> Statement:
     data = await _dataset(store, dataset or settings.dataset)
     run = await store.run_items(data.id, run_id or None)  # `?run_id=` means the latest run
-    return build_statement(data, run.run_id)
+    return build_statement(data, run.run_id, run.items)
