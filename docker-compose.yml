@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
     env_file:
-      - .env
+      - backend/.env
     environment:
       # Browser hits the UI origin; nginx proxies API on the same host.
       CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-8080}

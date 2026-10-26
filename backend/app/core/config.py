@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     database_url: str = ""
     dataset: str = "northbrook-2026-10"
 
+    # Model tiers used by the agents (see docs/architecture.md)
+    model_nano: str = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+    model_super: str = "nvidia/nemotron-3-super-120b-a12b"
+    model_ultra: str = "nvidia/Nemotron-3-Ultra-550b-a55b"
+
+    # Built frontend (frontend/dist). Set in the Docker image; empty means API only.
+    static_dir: str = ""
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: object) -> object:
