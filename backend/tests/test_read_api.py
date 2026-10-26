@@ -1,11 +1,13 @@
 """Read API v1 over the CSV source (no DATABASE_URL). Expected values come from demo-data/ and the backlog."""
 
 import json
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 
 from app.api.routes.reads import get_read_store
+from app.recon.models import ProposedEntry
 from app.recon.store import CsvStore, ItemRef, RunItems
 from tests.test_run_contract import FIXTURES
 
@@ -138,6 +140,31 @@ async def test_statement_names_the_run_it_reads(client: AsyncClient, one_run):
     body = (await client.get("/api/v1/statement")).json()
     assert body["run_id"] == RUN_ID
     assert body["raw_difference"] == "864.09"
+
+
+class FeeApprovedStore(CsvStore):
+    """A run where the bank fee's entry (DR 6800 / CR 1010 25.00) has been approved."""
+
+    async def run_items(self, dataset_id, run_id):
+        entry = ProposedEntry(debit_account="6800", credit_account="1010", amount=Decimal("25.00"), memo="Bank fee")
+        return RunItems(
+            run_id=RUN_ID,
+            items=(
+                ItemRef(id="item-2", status="approved", kind="bank_fee_missing_in_gl",
+                        bank_ids=("BANK032",), gl_ids=(), entry=entry),
+            ),
+        )
+
+
+async def test_statement_applies_the_run_items(app, client: AsyncClient):
+    app.dependency_overrides[get_read_store] = lambda: FeeApprovedStore(DATASET)
+    body = (await client.get("/api/v1/statement")).json()
+    assert body["book"]["lines"] == [{
+        "item_id": "item-2", "kind": "bank_fee_missing_in_gl", "label": "Bank fee", "amount": "-25.00",
+        "status": "approved", "applied": True, "bank_ids": ["BANK032"], "gl_ids": [],
+    }]
+    assert body["book"]["adjusted_balance"] == "47658.90"
+    assert body["unreconciled_difference"] == "889.09"
 
 
 @pytest.mark.parametrize(

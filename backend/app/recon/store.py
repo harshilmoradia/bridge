@@ -10,11 +10,11 @@ from pydantic import BaseModel, ConfigDict
 
 from app.core.errors import AppError
 from app.recon.loader import DATA_DIR, load_dataset
-from app.recon.models import Balances, BankTxn, Dataset, GlEntry
+from app.recon.models import Balances, BankTxn, Dataset, GlEntry, ProposedEntry
 
 
 class ItemRef(BaseModel):
-    """The part of a run's item that the read API needs to label rows."""
+    """The part of a run's item that the read API needs: row labels and the statement's inputs."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -22,6 +22,8 @@ class ItemRef(BaseModel):
     status: str
     bank_ids: tuple[str, ...]
     gl_ids: tuple[str, ...]
+    kind: str = "unknown"
+    entry: ProposedEntry | None = None  # the item's journal entry, when it needs one
 
 
 class RunItems(BaseModel):

@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Row(BaseModel):
@@ -56,3 +56,12 @@ class Dataset(BaseModel):
     balances: Balances
     bank: tuple[BankTxn, ...]
     gl: tuple[GlEntry, ...]
+
+
+class ProposedEntry(_Row):
+    """A two-line journal entry, shaped like a `proposed_entries` row. Amount is positive."""
+
+    debit_account: str
+    credit_account: str
+    amount: Decimal = Field(gt=0)  # matches the proposed_entries check (amount > 0)
+    memo: str
