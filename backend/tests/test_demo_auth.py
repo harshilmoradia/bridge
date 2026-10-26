@@ -36,13 +36,20 @@ async def test_a_rejected_token_is_401_not_the_demo_user(app, client):
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize("header", ["Basic abc", "Bearer ", "Bearer", "", "garbage"])
+async def test_a_malformed_authorization_header_is_401_not_the_demo_user(client, header):
+    response = await client.get("/api/v1/datasets", headers={"Authorization": header})
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "unauthenticated"
+
+
 async def test_a_valid_token_resolves_to_the_real_user(app):
     configure_service(app, lambda request: httpx.Response(200, json=USER))
     from app.api.auth import get_supabase_service
 
     service = app.dependency_overrides[get_supabase_service]()
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="user-token")
-    context = await get_user_or_demo(credentials, service, Settings(_env_file=None, public_demo_api=True))
+    context = await get_user_or_demo(credentials, service, Settings(_env_file=None, public_demo_api=True), "Bearer user-token")
     assert str(context.user.id) == USER_ID
     assert context.token == "user-token"
 
@@ -50,6 +57,6 @@ async def test_a_valid_token_resolves_to_the_real_user(app):
 async def test_no_token_with_the_flag_on_is_the_demo_user(app):
     from app.api.auth import get_supabase_service
 
-    context = await get_user_or_demo(None, get_supabase_service(get_settings()), Settings(_env_file=None))
+    context = await get_user_or_demo(None, get_supabase_service(get_settings()), Settings(_env_file=None), None)
     assert context.user == DEMO_USER
     assert context.token is None
