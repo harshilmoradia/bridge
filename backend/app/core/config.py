@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # Supabase transaction pooler (port 6543). Backend only.
     database_url: str = ""
     dataset: str = "northbrook-2026-10"
+    # Demo routers (/api/v1 reads, later runs and decisions) accept callers without a bearer token.
+    public_demo_api: bool = True
 
     # Model tiers used by the agents (see docs/architecture.md)
     model_nano: str = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
