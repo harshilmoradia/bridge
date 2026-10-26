@@ -13,6 +13,9 @@ def app(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:5173")
     monkeypatch.setenv("SUPABASE_URL", "")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "")
+    monkeypatch.setenv("DATABASE_URL", "")  # read API uses the CSV store in tests
+    monkeypatch.setenv("DATASET", "northbrook-2026-10")
+    monkeypatch.setenv("PUBLIC_DEMO_API", "true")  # the default; pinned so a local .env can't flip it
     application = create_app()
     yield application
     get_settings.cache_clear()

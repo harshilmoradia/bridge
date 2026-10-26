@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 
@@ -32,7 +33,19 @@ def _error_body(code: str, message: str) -> dict[str, Any]:
     return {"detail": {"code": code, "message": message}}
 
 
+def _validation_message(exc: RequestValidationError) -> str:
+    # Location and reason only: echoing the rejected input could reflect untrusted text.
+    parts = [
+        f"{'.'.join(str(p) for p in err.get('loc', ()))}: {err.get('msg', 'invalid')}" for err in exc.errors()
+    ]
+    return "; ".join(parts) or "Invalid request"
+
+
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(status_code=422, content=_error_body("invalid_request", _validation_message(exc)))
+
     @app.exception_handler(AppError)
     async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
