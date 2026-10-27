@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Protocol
 
 from app.core.config import Settings
@@ -5,7 +6,25 @@ from app.core.errors import LLMUnavailableError
 from app.schemas.chat import ChatMessage
 
 
+@dataclass(frozen=True)
+class Completion:
+    content: str
+    model: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
 class LLMProvider(Protocol):
+    async def generate(
+        self,
+        messages: list[ChatMessage],
+        model: str | None = None,
+        *,
+        json_mode: bool = False,
+        timeout: float | None = None,
+    ) -> Completion:
+        """Return the raw completion with token usage."""
+
     async def complete(
         self,
         messages: list[ChatMessage],

@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     model_super: str = "nvidia/nemotron-3-super-120b-a12b"
     model_ultra: str = "nvidia/Nemotron-3-Ultra-550b-a55b"
 
+    # Per-call timeout (seconds) by tier; reasoning models on Super/Ultra are slower.
+    llm_timeout_nano: float = 30.0
+    llm_timeout_super: float = 90.0
+    llm_timeout_ultra: float = 180.0
+    # Send response_format=json_object on JSON calls. Turn off if Token Factory rejects it.
+    llm_json_response_format: bool = True
+
     # Built frontend (frontend/dist). Set in the Docker image; empty means API only.
     static_dir: str = ""
 

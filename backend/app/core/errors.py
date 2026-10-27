@@ -29,6 +29,11 @@ class LLMUpstreamError(AppError):
         super().__init__(code="llm_upstream_error", message=message, status_code=502)
 
 
+class LLMInvalidOutputError(AppError):
+    def __init__(self, message: str = "LLM output did not match the expected schema") -> None:
+        super().__init__(code="llm_invalid_output", message=message, status_code=502)
+
+
 def _error_body(code: str, message: str) -> dict[str, Any]:
     return {"detail": {"code": code, "message": message}}
 
