@@ -129,6 +129,27 @@ def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
     assert any(item["resolution"] == "auto_match" and item["status"] == "matched" for item in result.output["items"])
 
 
+async def test_create_run_route_returns_queued_run(client):
+    response = await client.post(
+        "/api/v1/runs",
+        json={
+            "dataset": "northbrook-2026-10",
+            "period_start": "2026-10-01",
+            "period_end": "2026-10-10",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["id"]
+
+    run_response = await client.get(f"/api/v1/runs/{body['id']}")
+    assert run_response.status_code == 200
+    run = run_response.json()
+    assert run["dataset"] == "northbrook-2026-10"
+    assert run["status"] == "queued"
+
+
 def test_reconciliation_request_rejects_reversed_period():
     import pytest
     from pydantic import ValidationError
