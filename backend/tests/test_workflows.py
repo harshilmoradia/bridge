@@ -150,6 +150,93 @@ async def test_create_run_route_returns_queued_run(client):
     assert run["status"] == "queued"
 
 
+async def test_run_items_and_decision_routes_work(client):
+    from app.api.routes import runs as run_routes
+    from app.schemas.runs import Item, ProposedEntry
+
+    create_response = await client.post(
+        "/api/v1/runs",
+        json={
+            "dataset": "northbrook-2026-10",
+            "period_start": "2026-10-01",
+            "period_end": "2026-10-10",
+        },
+    )
+    run_id = create_response.json()["id"]
+    item_id = "item-queued-1"
+    run_routes.ITEMS[item_id] = Item(
+        id=item_id,
+        run_id=run_id,
+        kind="unknown",
+        resolution="escalate",
+        status="needs_approval",
+        bank_ids=["BANK099"],
+        gl_ids=["GL099"],
+        amount_delta="15.00",
+        reasoning="Needs review for the vendor credit.",
+        evidence=[],
+        flags=[],
+        model="stub",
+        confidence=0.82,
+        rule_id=None,
+        proposed_entry=ProposedEntry(
+            id="entry-queued-1",
+            debit_account="6800",
+            credit_account="1010",
+            amount="15.00",
+            memo="Vendor credit",
+            status="draft",
+        ),
+        created_at=run_routes._now(),
+    )
+
+    items_response = await client.get(f"/api/v1/runs/{run_id}/items")
+    assert items_response.status_code == 200
+    assert any(item["id"] == item_id for item in items_response.json())
+
+    decision_response = await client.post(
+        f"/api/v1/items/{item_id}/decision",
+        json={
+            "decision": "approve",
+            "remember": False,
+            "note": "Looks valid and matches the vendor credit.",
+        },
+    )
+    assert decision_response.status_code == 200
+    body = decision_response.json()
+    assert body["item"]["status"] == "approved"
+    assert body["item"]["proposed_entry"]["status"] == "approved"
+
+
+async def test_create_run_route_triggers_reconciliation_workflow(client, monkeypatch):
+    sent = []
+
+    async def fake_send(events, *, skip_middleware=False):
+        sent.append(events)
+        return ["evt-1"]
+
+    monkeypatch.setattr("app.api.routes.runs.inngest_client.send", fake_send)
+
+    response = await client.post(
+        "/api/v1/runs",
+        json={
+            "dataset": "northbrook-2026-10",
+            "period_start": "2026-10-01",
+            "period_end": "2026-10-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["id"]
+    assert len(sent) == 1
+    event = sent[0]
+    assert event.name == "bridge/reconciliation.requested"
+    assert event.data["run_id"] == body["id"]
+    assert event.data["dataset"] == "northbrook-2026-10"
+
+
 def test_reconciliation_request_rejects_reversed_period():
     import pytest
     from pydantic import ValidationError

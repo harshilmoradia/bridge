@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+import inngest
 from fastapi import APIRouter, Depends, Query
 
 from app.api.auth import get_user_or_demo
 from app.core.errors import AppError
 from app.schemas.reads import Statement, StatementLine, StatementSide
+from app.workflows.client import inngest_client
 from app.schemas.runs import (
     CreateRunRequest,
     CreateRunResponse,
@@ -65,6 +67,18 @@ async def create_run(request: CreateRunRequest) -> CreateRunResponse:
         error=None,
     )
     RUNS[run_id] = run
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="bridge/reconciliation.requested",
+                data={
+                    **request.model_dump(mode="json"),
+                    "run_id": run_id,
+                },
+            )
+        )
+    except Exception:
+        pass
     return CreateRunResponse(id=run_id, status=run.status)
 
 
