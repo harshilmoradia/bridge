@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from app.core.errors import LLMUnavailableError, LLMUpstreamError
+from app.providers.base import AgentMessage, ToolCall
 from app.providers.openai_compatible import OpenAICompatibleProvider
 from app.schemas.chat import ChatMessage
 
@@ -103,3 +104,54 @@ async def test_complete_still_returns_message_and_model(transport) -> None:
     message, model = await provider().complete(MSGS)
     assert message.role == "assistant" and message.content == '{"a": 1}'
     assert model == "nvidia/returned"
+
+
+TOOLS = [{"type": "function", "function": {
+    "name": "find_rules", "parameters": {"type": "object", "properties": {}}}}]
+
+
+async def test_tools_sent_and_tool_calls_parsed(transport) -> None:
+    # Reply shape recorded from Nemotron Super on Token Factory in the B-07 spike.
+    call = {"id": "call_1", "type": "function", "function": {
+        "name": "find_rules", "arguments": '{"description": "MONTHLY SERVICE FEE"}'}}
+    transport["handler"] = lambda _r: httpx.Response(200, json={
+        "model": "m", "choices": [{"message": {
+            "role": "assistant", "content": None, "tool_calls": [call]}}]})
+    result = await provider().generate(MSGS, tools=TOOLS)
+    assert json.loads(transport["requests"][0].content)["tools"] == TOOLS
+    assert result.content == ""
+    assert result.tool_calls == (
+        ToolCall(id="call_1", name="find_rules",
+                 arguments='{"description": "MONTHLY SERVICE FEE"}'),
+    )
+
+
+async def test_tool_turn_messages_round_trip(transport) -> None:
+    transport["handler"] = lambda _r: httpx.Response(200, json=ok_body())
+    call = ToolCall(id="call_1", name="find_rules", arguments="{}")
+    turn = [
+        *MSGS,
+        AgentMessage(role="assistant", content="", tool_calls=[call]),
+        AgentMessage(role="tool", content='{"rules": []}', tool_call_id="call_1"),
+    ]
+    result = await provider().generate(turn, tools=TOOLS)
+    sent = json.loads(transport["requests"][0].content)["messages"]
+    assert sent[0] == {"role": "user", "content": "hi"}
+    assert sent[1] == {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "call_1", "type": "function",
+         "function": {"name": "find_rules", "arguments": "{}"}}]}
+    assert sent[2] == {"role": "tool", "content": '{"rules": []}', "tool_call_id": "call_1"}
+    assert result.tool_calls == ()
+
+
+async def test_no_tools_key_without_tools(transport) -> None:
+    transport["handler"] = lambda _r: httpx.Response(200, json=ok_body())
+    await provider().generate(MSGS)
+    assert "tools" not in json.loads(transport["requests"][0].content)
+
+
+async def test_null_content_without_tool_calls_is_upstream_error(transport) -> None:
+    transport["handler"] = lambda _r: httpx.Response(200, json={
+        "choices": [{"message": {"role": "assistant", "content": None}}]})
+    with pytest.raises(LLMUpstreamError):
+        await provider().generate(MSGS)
