@@ -1,4 +1,4 @@
-"""Inngest entry point and deterministic matching stage for reconciliation runs."""
+"""Inngest entry point and matching/decision stages for reconciliation runs."""
 
 from datetime import date
 
@@ -6,8 +6,11 @@ import inngest
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.config import get_settings
+from app.llm import get_llm_client
+from app.recon.matching_models import CandidateGroup
 from app.recon.matcher import load_match_policy, match
 from app.recon.store import CsvStore, DbStore, ReadStore
+from app.schemas.chat import ChatMessage
 from app.workflows.client import inngest_client
 
 
@@ -26,12 +29,92 @@ class ReconciliationRequested(BaseModel):
         return self
 
 
+class CandidateDecision(BaseModel):
+    """Single-choice resolution for an ambiguous candidate group."""
+
+    selected_option_index: int = Field(ge=0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(min_length=1, max_length=300)
+
+
+async def _resolve_candidate_group(group: CandidateGroup, *, group_index: int) -> dict[str, object]:
+    """Ask the LLM to select one valid option; return a structured decision or a skip."""
+    if not group.options:
+        return {
+            "group_index": group_index,
+            "status": "skipped",
+            "bank_ids": list(group.bank_ids),
+            "gl_ids": list(group.gl_ids),
+            "selected_option_index": None,
+            "selected_bank_ids": [],
+            "selected_gl_ids": [],
+            "confidence": None,
+            "reason": "no options available",
+        }
+
+    options = [
+        {
+            "index": i,
+            "bank_ids": list(option.bank_ids),
+            "gl_ids": list(option.gl_ids),
+            "kind": option.kind,
+            "amount_delta": str(option.amount_delta),
+            "date_gap_days": option.date_gap_days,
+        }
+        for i, option in enumerate(group.options)
+    ]
+    prompts = [
+        ChatMessage(
+            role="user",
+            content=(
+                "Select the single best option for this ambiguous match group. "
+                "Return JSON with keys selected_option_index, confidence, and reason. "
+                "Use only indexes from the options list. "
+                "Do not invent rows.\n\n"
+                f"bank_ids={list(group.bank_ids)}\n"
+                f"gl_ids={list(group.gl_ids)}\n"
+                f"options={options}"
+            ),
+        )
+    ]
+
+    try:
+        client = get_llm_client(get_settings())
+        decision, _ = await client.complete_json("super", prompts, CandidateDecision)
+        if decision.selected_option_index >= len(group.options):
+            raise ValueError("selected_option_index is outside the available option list")
+        option = group.options[decision.selected_option_index]
+        return {
+            "group_index": group_index,
+            "status": "resolved",
+            "bank_ids": list(group.bank_ids),
+            "gl_ids": list(group.gl_ids),
+            "selected_option_index": decision.selected_option_index,
+            "selected_bank_ids": list(option.bank_ids),
+            "selected_gl_ids": list(option.gl_ids),
+            "confidence": decision.confidence,
+            "reason": decision.reason,
+        }
+    except Exception:
+        return {
+            "group_index": group_index,
+            "status": "skipped",
+            "bank_ids": list(group.bank_ids),
+            "gl_ids": list(group.gl_ids),
+            "selected_option_index": None,
+            "selected_bank_ids": [],
+            "selected_gl_ids": [],
+            "confidence": None,
+            "reason": "LLM resolution unavailable; candidate left for manual review",
+        }
+
+
 @inngest_client.create_function(
     fn_id="reconciliation-run",
     trigger=inngest.TriggerEvent(event="bridge/reconciliation.requested"),
 )
 async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
-    """Load the requested period and produce code-based matches and candidates."""
+    """Load the requested period, run deterministic matching, and resolve ambiguous groups when possible."""
     request = ReconciliationRequested.model_validate(ctx.event.data)
 
     async def load_and_match() -> dict[str, object]:
@@ -51,8 +134,6 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
         ]
         result = match(bank, gl, load_match_policy())
 
-        # Inngest persists step outputs. Store only row IDs and counts here;
-        # future agent steps can reload the dataset from these references.
         matches = [
             {"bank_ids": list(item.bank_ids), "gl_ids": list(item.gl_ids)}
             for item in result.matches
@@ -69,10 +150,15 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
             for group in result.candidates
         ]
         candidate_options = sum(len(group.options) for group in result.candidates)
+        resolved_candidates = [
+            await _resolve_candidate_group(group, group_index=i)
+            for i, group in enumerate(result.candidates)
+        ]
         return {
             "run_id": request.run_id,
             "matches": matches,
             "candidate_groups": candidates,
+            "resolved_candidates": resolved_candidates,
             "unmatched_bank_ids": list(result.unmatched_bank_ids),
             "unmatched_gl_ids": list(result.unmatched_gl_ids),
             "counts": {
@@ -81,6 +167,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                 "matches": len(matches),
                 "candidate_groups": len(candidates),
                 "candidate_options": candidate_options,
+                "resolved_candidates": len([item for item in resolved_candidates if item["status"] == "resolved"]),
                 "unmatched_bank": len(result.unmatched_bank_ids),
                 "unmatched_gl": len(result.unmatched_gl_ids),
             },

@@ -87,6 +87,42 @@ def test_reconciliation_run_limits_inputs_to_requested_period(monkeypatch):
     assert result.output["counts"]["gl_entries"] == 22
 
 
+def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
+    import inngest
+    from inngest.experimental import mocked
+
+    from app.core.config import get_settings
+    from app.workflows.reconciliation import reconciliation_run
+
+    class FakeClient:
+        async def complete_json(self, *_args, **_kwargs):
+            return type("Decision", (), {"selected_option_index": 1, "confidence": 0.94, "reason": "second option is the later posting"})(), None
+
+    monkeypatch.setenv("DATABASE_URL", "")
+    monkeypatch.setenv("DATASET", "northbrook-2026-10")
+    monkeypatch.setattr("app.workflows.reconciliation.get_llm_client", lambda _settings: FakeClient())
+    get_settings.cache_clear()
+    result = mocked.trigger(
+        reconciliation_run,
+        inngest.Event(
+            name="bridge/reconciliation.requested",
+            data={
+                "run_id": "run-456",
+                "dataset": "northbrook-2026-10",
+                "period_start": "2026-10-01",
+                "period_end": "2026-10-10",
+            },
+        ),
+        mocked.Inngest(app_id="test"),
+    )
+    get_settings.cache_clear()
+
+    assert result.status is mocked.Status.COMPLETED
+    assert result.output["counts"]["candidate_groups"] >= 1
+    assert result.output["resolved_candidates"]
+    assert result.output["resolved_candidates"][0]["selected_option_index"] == 1
+
+
 def test_reconciliation_request_rejects_reversed_period():
     import pytest
     from pydantic import ValidationError
