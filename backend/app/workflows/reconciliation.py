@@ -1,5 +1,6 @@
 """Inngest entry point and matching/decision stages for reconciliation runs."""
 
+import json
 from datetime import date
 
 import inngest
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.core.config import get_settings
 from app.llm import get_llm_client
+from app.recon.loader import DATA_DIR
 from app.recon.matching_models import CandidateGroup
 from app.recon.matcher import load_match_policy, match
 from app.recon.store import CsvStore, DbStore, ReadStore
@@ -92,6 +94,8 @@ async def _resolve_candidate_group(group: CandidateGroup, *, group_index: int) -
             "selected_option_index": decision.selected_option_index,
             "selected_bank_ids": list(option.bank_ids),
             "selected_gl_ids": list(option.gl_ids),
+            "kind": option.kind,
+            "delta": str(option.amount_delta),
             "confidence": decision.confidence,
             "reason": decision.reason,
         }
@@ -104,9 +108,40 @@ async def _resolve_candidate_group(group: CandidateGroup, *, group_index: int) -
             "selected_option_index": None,
             "selected_bank_ids": [],
             "selected_gl_ids": [],
+            "kind": None,
+            "delta": None,
             "confidence": None,
             "reason": "LLM resolution unavailable; candidate left for manual review",
         }
+
+
+def _apply_policy(resolved: dict[str, object]) -> dict[str, object]:
+    """Map the chosen match kind to the policy outcome the run should carry."""
+    policy = json.loads((DATA_DIR / "policy.json").read_text(encoding="utf-8"))
+    auto_resolve_kinds = set(policy.get("auto_resolve_kinds", []))
+    tolerance = policy.get("auto_writeoff_tolerance", "0.00")
+    kind = resolved.get("kind")
+    amount_delta = resolved.get("delta")
+
+    if kind == "rounding" and amount_delta is not None:
+        delta = abs(float(str(amount_delta)))
+        if delta <= float(tolerance):
+            return {
+                "kind": kind,
+                "resolution": "auto_match_with_writeoff",
+                "policy_basis": "auto_writeoff_tolerance",
+            }
+    if kind in auto_resolve_kinds:
+        return {
+            "kind": kind,
+            "resolution": "auto_match",
+            "policy_basis": "auto_resolve_kinds",
+        }
+    return {
+        "kind": kind,
+        "resolution": "escalate",
+        "policy_basis": "always_escalate_kinds",
+    }
 
 
 @inngest_client.create_function(
@@ -154,11 +189,31 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
             await _resolve_candidate_group(group, group_index=i)
             for i, group in enumerate(result.candidates)
         ]
+        policy_decisions = []
+        for item in resolved_candidates:
+            if item.get("status") == "resolved":
+                rule = _apply_policy(item)
+                policy_decisions.append({
+                    "group_index": item["group_index"],
+                    "bank_ids": item["bank_ids"],
+                    "gl_ids": item["gl_ids"],
+                    "selected_option_index": item["selected_option_index"],
+                    "selected_bank_ids": item["selected_bank_ids"],
+                    "selected_gl_ids": item["selected_gl_ids"],
+                    "kind": rule["kind"],
+                    "resolution": rule["resolution"],
+                    "policy_basis": rule["policy_basis"],
+                    "delta": item.get("delta"),
+                    "confidence": item.get("confidence"),
+                    "reason": item.get("reason"),
+                })
+        auto_resolved = sum(1 for item in policy_decisions if item["resolution"] in {"auto_match", "auto_match_with_writeoff"})
         return {
             "run_id": request.run_id,
             "matches": matches,
             "candidate_groups": candidates,
             "resolved_candidates": resolved_candidates,
+            "policy_decisions": policy_decisions,
             "unmatched_bank_ids": list(result.unmatched_bank_ids),
             "unmatched_gl_ids": list(result.unmatched_gl_ids),
             "counts": {
@@ -168,6 +223,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                 "candidate_groups": len(candidates),
                 "candidate_options": candidate_options,
                 "resolved_candidates": len([item for item in resolved_candidates if item["status"] == "resolved"]),
+                "auto_resolved": auto_resolved,
                 "unmatched_bank": len(result.unmatched_bank_ids),
                 "unmatched_gl": len(result.unmatched_gl_ids),
             },
