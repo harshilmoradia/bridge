@@ -30,12 +30,16 @@ def test_smoke_run_executes_all_steps(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_reconciliation_run_accepts_validated_run_metadata():
+def _trigger_reconciliation(monkeypatch, period_start="2026-10-01", period_end="2026-10-10"):
     import inngest
     from inngest.experimental import mocked
 
+    from app.core.config import get_settings
     from app.workflows.reconciliation import reconciliation_run
 
+    monkeypatch.setenv("DATABASE_URL", "")
+    monkeypatch.setenv("DATASET", "northbrook-2026-10")
+    get_settings.cache_clear()
     result = mocked.trigger(
         reconciliation_run,
         inngest.Event(
@@ -43,15 +47,44 @@ def test_reconciliation_run_accepts_validated_run_metadata():
             data={
                 "run_id": "run-123",
                 "dataset": "northbrook-2026-10",
-                "period_start": "2026-10-01",
-                "period_end": "2026-10-10",
+                "period_start": period_start,
+                "period_end": period_end,
             },
         ),
         mocked.Inngest(app_id="test"),
     )
+    get_settings.cache_clear()
+    return result
 
+
+def test_reconciliation_run_loads_dataset_and_runs_rule_matcher(monkeypatch):
+    from inngest.experimental import mocked
+
+    result = _trigger_reconciliation(monkeypatch)
     assert result.status is mocked.Status.COMPLETED
-    assert result.output == {"run_id": "run-123"}
+    output = result.output
+    assert output["run_id"] == "run-123"
+    assert output["counts"]["bank_transactions"] == 112
+    assert output["counts"]["gl_entries"] == 114
+
+    # One bank deposit is matched to the three ledger invoices by deterministic subset sum.
+    assert {"bank_ids": ["BANK112"], "gl_ids": ["GL111", "GL112", "GL113"]} in output["matches"]
+    # The duplicate check remains an LLM candidate rather than being guessed by code.
+    assert any(
+        group["bank_ids"] == ["BANK009"] and group["gl_ids"] == ["GL002", "GL003"]
+        for group in output["candidate_groups"]
+    )
+    assert "description" not in str(output).lower()
+    assert "amount" not in str(output).lower()
+
+
+def test_reconciliation_run_limits_inputs_to_requested_period(monkeypatch):
+    from inngest.experimental import mocked
+
+    result = _trigger_reconciliation(monkeypatch, "2026-10-01", "2026-10-02")
+    assert result.status is mocked.Status.COMPLETED
+    assert result.output["counts"]["bank_transactions"] == 20
+    assert result.output["counts"]["gl_entries"] == 22
 
 
 def test_reconciliation_request_rejects_reversed_period():
