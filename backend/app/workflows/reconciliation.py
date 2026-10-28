@@ -144,6 +144,38 @@ def _apply_policy(resolved: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _materialize_items(policy_decisions: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Turn accepted policy decisions into canonical item records the run can persist or display."""
+    items: list[dict[str, object]] = []
+    for item in policy_decisions:
+        resolution = item["resolution"]
+        status_map = {
+            "auto_match": "matched",
+            "auto_match_with_writeoff": "auto_resolved",
+            "escalate": "needs_approval",
+        }
+        items.append({
+            "id": f"item-{item['group_index']}",
+            "run_id": item.get("run_id"),
+            "kind": item["kind"],
+            "resolution": resolution,
+            "status": status_map.get(resolution, "needs_approval"),
+            "bank_ids": item.get("selected_bank_ids") or item.get("bank_ids", []),
+            "gl_ids": item.get("selected_gl_ids") or item.get("gl_ids", []),
+            "amount_delta": item.get("delta"),
+            "reasoning": item.get("reason"),
+            "evidence": [
+                {"type": "policy", "id": item.get("policy_basis"), "note": None},
+                {"type": "bank_transaction", "id": item["bank_ids"][0] if item.get("bank_ids") else None, "note": None},
+            ] if item.get("bank_ids") else [{"type": "policy", "id": item.get("policy_basis"), "note": None}],
+            "flags": [],
+            "model": "llm-super",
+            "confidence": item.get("confidence"),
+            "rule_id": None,
+        })
+    return items
+
+
 @inngest_client.create_function(
     fn_id="reconciliation-run",
     trigger=inngest.TriggerEvent(event="bridge/reconciliation.requested"),
@@ -195,6 +227,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                 rule = _apply_policy(item)
                 policy_decisions.append({
                     "group_index": item["group_index"],
+                    "run_id": request.run_id,
                     "bank_ids": item["bank_ids"],
                     "gl_ids": item["gl_ids"],
                     "selected_option_index": item["selected_option_index"],
@@ -207,6 +240,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                     "confidence": item.get("confidence"),
                     "reason": item.get("reason"),
                 })
+        items = _materialize_items(policy_decisions)
         auto_resolved = sum(1 for item in policy_decisions if item["resolution"] in {"auto_match", "auto_match_with_writeoff"})
         return {
             "run_id": request.run_id,
@@ -214,6 +248,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
             "candidate_groups": candidates,
             "resolved_candidates": resolved_candidates,
             "policy_decisions": policy_decisions,
+            "items": items,
             "unmatched_bank_ids": list(result.unmatched_bank_ids),
             "unmatched_gl_ids": list(result.unmatched_gl_ids),
             "counts": {

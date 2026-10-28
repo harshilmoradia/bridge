@@ -126,6 +126,7 @@ def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
         and decision["kind"] is not None
         for decision in result.output["policy_decisions"]
     )
+    assert any(item["resolution"] == "auto_match" and item["status"] == "matched" for item in result.output["items"])
 
 
 def test_reconciliation_request_rejects_reversed_period():
