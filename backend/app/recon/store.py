@@ -3,14 +3,19 @@
 Both stores return the same domain models, so routes never know which one they talk to.
 """
 
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Protocol
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
 from app.core.errors import AppError
 from app.recon.loader import DATA_DIR, load_dataset
 from app.recon.models import Balances, BankTxn, Dataset, GlEntry, ProposedEntry
+from app.schemas.reads import Statement, StatementLine, StatementSide
+from app.schemas.runs import CreateRunRequest, DecisionRequest, DecisionResponse, Item, Run, RunCounts
 
 
 class ItemRef(BaseModel):
@@ -48,6 +53,105 @@ class ReadStore(Protocol):
     async def run_items(self, dataset_id: str, run_id: str | None) -> RunItems:
         """Items of `run_id`, or of the dataset's latest run when it is None."""
         ...
+
+
+class RunStore(Protocol):
+    async def create_run(self, request: CreateRunRequest) -> Run: ...
+
+    async def get_run(self, run_id: str) -> Run | None: ...
+
+    async def list_items(self, run_id: str, status: str | None = None) -> list[Item]: ...
+
+    async def decide_item(self, item_id: str, request: DecisionRequest) -> DecisionResponse: ...
+
+
+def _empty_statement(run: Run) -> Statement:
+    zero = Decimal("0.00")
+    return Statement(
+        dataset=run.dataset,
+        run_id=run.id,
+        company="Northbrook Goods Co.",
+        cash_account="1010",
+        period_start=run.period_start,
+        period_end=run.period_end,
+        raw_difference=zero,
+        bank=StatementSide(closing_balance=zero, lines=[], adjusted_balance=zero),
+        book=StatementSide(closing_balance=zero, lines=[], adjusted_balance=zero),
+        unreconciled_difference=zero,
+    )
+
+
+class MemoryRunStore:
+    def __init__(self) -> None:
+        self._runs: dict[str, Run] = {}
+        self._items: dict[str, Item] = {}
+
+    @staticmethod
+    def _now() -> datetime:
+        return datetime.now(timezone.utc)
+
+    async def create_run(self, request: CreateRunRequest) -> Run:
+        run = Run(
+            id=str(uuid4()),
+            dataset=request.dataset,
+            period_start=request.period_start,
+            period_end=request.period_end,
+            status="queued",
+            created_at=self._now(),
+            updated_at=self._now(),
+            steps=[],
+            counts=RunCounts(),
+            report=None,
+            error=None,
+        )
+        self._runs[run.id] = run
+        return run
+
+    async def get_run(self, run_id: str) -> Run | None:
+        return self._runs.get(run_id)
+
+    async def list_items(self, run_id: str, status: str | None = None) -> list[Item]:
+        items = [item for item in self._items.values() if item.run_id == run_id]
+        if status is not None:
+            items = [item for item in items if item.status == status]
+        return sorted(items, key=lambda item: item.created_at)
+
+    async def decide_item(self, item_id: str, request: DecisionRequest) -> DecisionResponse:
+        item = self._items.get(item_id)
+        if item is None:
+            raise AppError(code="item_not_found", message=f"Item {item_id} does not exist", status_code=404)
+        run = self._runs.get(item.run_id)
+        if run is None:
+            raise AppError(code="run_not_found", message=f"Run {item.run_id} does not exist", status_code=404)
+
+        item.status = "approved" if request.decision == "approve" else "rejected"
+        if item.proposed_entry is not None:
+            item.proposed_entry.status = item.status
+
+        if request.entry_override is not None and item.proposed_entry is not None:
+            item.proposed_entry.debit_account = request.entry_override.debit_account
+            item.proposed_entry.credit_account = request.entry_override.credit_account
+            item.proposed_entry.amount = request.entry_override.amount
+            item.proposed_entry.memo = request.entry_override.memo
+
+        statement = _empty_statement(run)
+        if item.proposed_entry is not None and item.status == "approved":
+            statement.book.lines.append(
+                StatementLine(
+                    item_id=item.id,
+                    kind=item.kind,
+                    label=item.proposed_entry.memo,
+                    amount=item.amount_delta,
+                    status=item.status,
+                    applied=True,
+                    bank_ids=item.bank_ids,
+                    gl_ids=item.gl_ids,
+                )
+            )
+            statement.book.adjusted_balance = statement.book.adjusted_balance + Decimal(str(item.amount_delta))
+            statement.unreconciled_difference = statement.unreconciled_difference - Decimal(str(item.amount_delta))
+
+        return DecisionResponse(item=item, statement=statement)
 
 
 class CsvStore:
