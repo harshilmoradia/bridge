@@ -2,6 +2,9 @@ import { Link } from 'react-router';
 import type { Statement, StatementLine, StatementSide } from '../api/types';
 import { Money } from './Money';
 import { StatusChip } from './StatusChip';
+import { useCountUp } from '../hooks/useCountUp';
+import { isZeroMoney } from '../lib/workspace';
+import { cn } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 function Lines({ title, lines }: { title: string; lines: StatementLine[] }) {
@@ -35,7 +38,19 @@ function Side({ title, linesTitle, side, testId }: { title: string; linesTitle: 
     );
 }
 
-// Static view of GET /statement: bank side, book side, raw and unreconciled difference. Interactions arrive in U-04..U-07.
+// The difference counts up/down between values and turns green at 0.00.
+function Difference({ value }: { value: string }) {
+    const shown = useCountUp(value);
+    const balanced = isZeroMoney(value) && shown === value;
+    return (
+        <strong data-testid="unreconciled" data-balanced={balanced} aria-live="polite"
+            className={cn('text-base transition-colors', balanced && 'text-emerald-600 dark:text-emerald-400')}>
+            <Money value={shown} className={balanced ? 'text-emerald-600 dark:text-emerald-400' : undefined} />
+        </strong>
+    );
+}
+
+// Live view of GET /statement: bank side, book side, raw and unreconciled difference. The parent refetches it as items resolve.
 export function StatementCard({ statement: s }: { statement: Statement }) {
     return (
         <div className="space-y-3" data-testid="statement-card">
@@ -47,7 +62,7 @@ export function StatementCard({ statement: s }: { statement: Statement }) {
             <Card>
                 <CardContent className="flex flex-wrap items-center gap-x-8 gap-y-2 pt-4 text-sm">
                     <p>Raw difference <strong data-testid="raw-difference"><Money value={s.raw_difference} /></strong></p>
-                    <p>Unreconciled difference <strong data-testid="unreconciled"><Money value={s.unreconciled_difference} /></strong></p>
+                    <p>Unreconciled difference <Difference value={s.unreconciled_difference} /></p>
                     {s.run_id && <p className="ml-auto"><Link className="text-primary underline" to={`/runs/${s.run_id}`}>Run</Link> · <Link className="text-primary underline" to={`/report/${s.run_id}`}>Report</Link></p>}
                 </CardContent>
             </Card>

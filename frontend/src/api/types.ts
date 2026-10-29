@@ -73,8 +73,10 @@ export interface Item {
 
 export interface DecisionRequest {
     decision: 'approve' | 'reject'; entry_override?: Partial<Pick<ProposedEntry, 'debit_account' | 'credit_account' | 'amount' | 'memo'>>;
-    remember: boolean; note: string;
+    remember: boolean; note: string | null;
 }
+export interface DemoResetResponse { dataset: string; runs_deleted: number; rules_deleted: number }
+
 export interface DecisionResponse { item: Item; statement: Statement }
 
 export interface Rule {
