@@ -27,6 +27,13 @@ export const useRun = (id: string | undefined) =>
 export const useRunItems = (id: string | undefined, status?: ReconStatus) =>
     useQuery({ queryKey: keys.items(id ?? '', status), queryFn: ({ signal }) => api.runItems(id!, status, signal), enabled: Boolean(id) });
 
+// Polls while the run is active (pass the run's status); a decision invalidates it too.
+export const useRunAudit = (id: string | undefined, active = false) =>
+    useQuery({
+        queryKey: keys.audit(id ?? ''), queryFn: ({ signal }) => api.runAudit(id!, signal), enabled: Boolean(id),
+        refetchInterval: active ? RUN_POLL_MS : false,
+    });
+
 export const useRules = () => useQuery({ queryKey: keys.rules, queryFn: ({ signal }) => api.rules(signal) });
 
 export function useCreateRun() {
@@ -54,11 +61,19 @@ export function useDecideItem() {
             client.invalidateQueries({ queryKey: keys.banks }),
             client.invalidateQueries({ queryKey: keys.gls }),
             client.invalidateQueries({ queryKey: keys.rules }),
+            client.invalidateQueries({ queryKey: ['run-audit'] }),
         ]),
     });
 }
 
+// No invalidation here: the caller clears page state first (afterReset), then invalidates, so the deleted run is never refetched.
 export function useResetDemo() {
     const client = useQueryClient();
-    return useMutation({ mutationFn: () => api.resetDemo(), onSuccess: () => client.invalidateQueries() });
+    const invalidateAll = () => {
+        client.removeQueries({ queryKey: ['run'] });
+        client.removeQueries({ queryKey: keys.runItems });
+        client.removeQueries({ queryKey: ['run-audit'] });
+        return client.invalidateQueries();
+    };
+    return { ...useMutation({ mutationFn: () => api.resetDemo() }), invalidateAll };
 }

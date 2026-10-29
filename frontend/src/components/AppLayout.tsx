@@ -6,6 +6,7 @@ const NAV = [
     { to: '/reconcile', icon: 'ri-scales-3-line', label: 'Reconcile' },
     { to: '/bank', icon: 'ri-bank-line', label: 'Bank' },
     { to: '/ledger', icon: 'ri-book-2-line', label: 'Ledger' },
+    { to: '/evals', icon: 'ri-bar-chart-grouped-line', label: 'Model tiers' },
 ];
 
 interface AppLayoutProps {

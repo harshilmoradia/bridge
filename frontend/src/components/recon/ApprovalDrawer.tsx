@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { RuleChip } from '../RuleChip';
 import { useDecideItem } from '../../api/hooks';
 import type { EvidenceRef, Item } from '../../api/types';
 import { buildOverride, validateEntry, type EntryDraft } from '../../lib/entry';
@@ -34,7 +35,7 @@ function ApprovalCard({ item, ui, setUi, onEvidence, onDecide, busy }: CardProps
     return (
         <article className="space-y-3 rounded-lg border p-3" data-item-id={item.id} aria-label={item.kind.replaceAll('_', ' ')}>
             <header className="flex items-baseline justify-between gap-2">
-                <h3 className="font-medium">{item.kind.replaceAll('_', ' ')}</h3>
+                <h3 className="flex flex-wrap items-center gap-2 font-medium">{item.kind.replaceAll('_', ' ')}<RuleChip item={item} /></h3>
                 <Money value={item.amount_delta} className="font-medium" />
             </header>
             <p className="text-sm text-muted-foreground">{item.reasoning}</p>

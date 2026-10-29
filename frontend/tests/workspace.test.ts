@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { interpolateMoney, isRunActive, isZeroMoney, itemsSignature, shouldRefreshOnComplete, needsApproval, nextHighlight } from '../src/lib/workspace.ts';
+import { interpolateMoney, isRunActive, isZeroMoney, itemsSignature, shouldRefreshOnComplete, runJustFinished, needsApproval, nextHighlight, defaultRange } from '../src/lib/workspace.ts';
 
 test('nextHighlight toggles and ignores rows without an item', () => {
     assert.equal(nextHighlight(null, 'i1'), 'i1');
@@ -51,4 +51,17 @@ test('isZeroMoney', () => {
     assert.equal(isZeroMoney('0.00'), true);
     assert.equal(isZeroMoney('-0.00'), true);
     assert.equal(isZeroMoney('0.01'), false);
+});
+
+test('defaultRange is the dataset period', () => {
+    assert.deepEqual(defaultRange({ period_start: '2026-10-01', period_end: '2026-10-10' }), { from: '2026-10-01', to: '2026-10-10' });
+});
+
+test('runJustFinished fires once on active to finished', () => {
+    assert.equal(runJustFinished('running', 'completed'), true);
+    assert.equal(runJustFinished('queued', 'failed'), true);
+    assert.equal(runJustFinished('completed', 'completed'), false);
+    assert.equal(runJustFinished('running', 'running'), false);
+    assert.equal(runJustFinished(undefined, 'completed'), false);
+    assert.equal(runJustFinished('running', undefined), false);
 });
