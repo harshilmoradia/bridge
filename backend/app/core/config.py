@@ -77,6 +77,8 @@ class Settings(BaseSettings):
 
     # Built frontend (frontend/dist). Set in the Docker image; empty means API only.
     static_dir: str = ""
+    # Public https URL, set by Render. Inngest syncs it as the app URL (the proxy hides https).
+    render_external_url: str = ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod

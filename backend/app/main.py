@@ -32,7 +32,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
-    inngest.fast_api.serve(app, inngest_client, functions)  # serves /api/inngest
+    inngest.fast_api.serve(  # serves /api/inngest
+        app, inngest_client, functions, serve_origin=settings.render_external_url or None
+    )
     if settings.static_dir:
         mount_spa(app, settings.static_dir)  # last: catch-all for the UI
     return app
