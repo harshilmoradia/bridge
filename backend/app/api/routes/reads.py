@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.auth import get_user_or_demo
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
+from app.guardrails.callouts import bank_guardrail, gl_guardrail
 from app.recon.models import Dataset
 from app.recon.statement import build_statement
 from app.recon.store import ReadStore, RunItems, read_store
@@ -71,7 +72,9 @@ async def list_bank_transactions(
     data = await _dataset(store, dataset or settings.dataset)
     status = _status_by_id(await store.run_items(data.id, None), "bank_ids")
     return [
-        BankTransactionOut(**t.model_dump(), **_label(status, t.txn_id))
+        BankTransactionOut(
+            **t.model_dump(), **_label(status, t.txn_id), guardrail=bank_guardrail(t.description)
+        )
         for t in data.bank
         if _in_range(t.posted_date, start, end)
     ]
@@ -89,7 +92,11 @@ async def list_gl_entries(
     data = await _dataset(store, dataset or settings.dataset)
     status = _status_by_id(await store.run_items(data.id, None), "gl_ids")
     return [
-        GlEntryOut(**g.model_dump(), **_label(status, g.entry_id))
+        GlEntryOut(
+            **g.model_dump(),
+            **_label(status, g.entry_id),
+            guardrail=gl_guardrail(g.description, g.counterparty),
+        )
         for g in data.gl
         if _in_range(g.date, start, end)
     ]

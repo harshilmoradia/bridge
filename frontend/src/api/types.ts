@@ -8,16 +8,21 @@ export type ReconStatus =
 
 export interface Dataset { id: string; label: string; period_start: string; period_end: string }
 
+// Computed server-side with the same masking and injection check the agents' prompts use.
+export interface Guardrail {
+    injection_flagged: boolean; pii_masked: boolean; sent_to_model: string; sent_counterparty: string | null;
+}
+
 export interface BankTransaction {
     txn_id: string; posted_date: string; description: string; amount: Money; type: string;
     check_number: string | null; running_balance: Money | null;
-    recon_status: ReconStatus; item_id: string | null;
+    recon_status: ReconStatus; item_id: string | null; guardrail: Guardrail;
 }
 
 export interface GlEntry {
     entry_id: string; date: string; description: string; amount: Money; method: string;
     check_number: string | null; account: string; counter_account: string; counterparty: string | null;
-    recon_status: ReconStatus; item_id: string | null;
+    recon_status: ReconStatus; item_id: string | null; guardrail: Guardrail;
 }
 
 export interface StatementLine {

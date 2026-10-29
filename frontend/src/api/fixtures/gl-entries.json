@@ -10,7 +10,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Check Payment - Office Supplies - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL002",
@@ -23,7 +29,13 @@
     "counter_account": "2000",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Invoice payment - Granite Mutual Insurance INV-7731",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL003",
@@ -36,7 +48,13 @@
     "counter_account": "2000",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Invoice payment - Granite Mutual Insurance INV-7731",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL004",
@@ -49,7 +67,13 @@
     "counter_account": "2000",
     "counterparty": "Tech Solutions Inc.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Tech Solutions - Tech Solutions Inc.",
+      "sent_counterparty": "Tech Solutions Inc."
+    }
   },
   {
     "entry_id": "GL005",
@@ -62,7 +86,13 @@
     "counter_account": "6300",
     "counterparty": "Harbor Consulting Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Consulting Fee - Monthly - Harbor Consulting Group",
+      "sent_counterparty": "Harbor Consulting Group"
+    }
   },
   {
     "entry_id": "GL006",
@@ -75,7 +105,13 @@
     "counter_account": "4900",
     "counterparty": "Lakeside Cafe",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Refund - Order #5432 - Lakeside Cafe",
+      "sent_counterparty": "Lakeside Cafe"
+    }
   },
   {
     "entry_id": "GL007",
@@ -88,7 +124,13 @@
     "counter_account": "6750",
     "counterparty": "Sarah Patel",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Employee Reimbursement - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL008",
@@ -101,7 +143,13 @@
     "counter_account": "6100",
     "counterparty": "Prairie Gas & Light",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Utility Payment - Electric - Prairie Gas & Light",
+      "sent_counterparty": "Prairie Gas & Light"
+    }
   },
   {
     "entry_id": "GL009",
@@ -114,7 +162,13 @@
     "counter_account": "6700",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Insurance Premium - Granite Mutual Insurance",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL010",
@@ -127,7 +181,13 @@
     "counter_account": "1500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Equipment Purchase - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL011",
@@ -140,7 +200,13 @@
     "counter_account": "6600",
     "counterparty": "Keystone Facility Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Maintenance & Repairs - Keystone Facility Services",
+      "sent_counterparty": "Keystone Facility Services"
+    }
   },
   {
     "entry_id": "GL012",
@@ -153,7 +219,13 @@
     "counter_account": "1200",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - Customer Invoice #INV-001 - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL013",
@@ -166,7 +238,13 @@
     "counter_account": "6200",
     "counterparty": "PayFlow Payroll Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Payroll ACH Transfer - PayFlow Payroll Services",
+      "sent_counterparty": "PayFlow Payroll Services"
+    }
   },
   {
     "entry_id": "GL014",
@@ -179,7 +257,13 @@
     "counter_account": "2000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Widget Co - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL015",
@@ -192,7 +276,13 @@
     "counter_account": "6000",
     "counterparty": "Lakeview Properties LLC",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Lease Payment - Lakeview Properties LLC",
+      "sent_counterparty": "Lakeview Properties LLC"
+    }
   },
   {
     "entry_id": "GL016",
@@ -205,7 +295,13 @@
     "counter_account": "6400",
     "counterparty": "BrightPath Media",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Marketing Expense - BrightPath Media",
+      "sent_counterparty": "BrightPath Media"
+    }
   },
   {
     "entry_id": "GL017",
@@ -218,7 +314,13 @@
     "counter_account": "6510",
     "counterparty": "CloudLedger Software",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Software License Renewal - CloudLedger Software",
+      "sent_counterparty": "CloudLedger Software"
+    }
   },
   {
     "entry_id": "GL018",
@@ -231,7 +333,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Supplies Purchase - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL019",
@@ -244,7 +352,13 @@
     "counter_account": "4200",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Client Reimbursement - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL020",
@@ -257,7 +371,13 @@
     "counter_account": "1020",
     "counterparty": "Transfer to Savings x8802",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Bank Account Transfer - Transfer to Savings x8802",
+      "sent_counterparty": "Transfer to Savings x8802"
+    }
   },
   {
     "entry_id": "GL021",
@@ -270,7 +390,13 @@
     "counter_account": "6000",
     "counterparty": "Midwest Equipment Rentals",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Equipment Rental - Midwest Equipment Rentals",
+      "sent_counterparty": "Midwest Equipment Rentals"
+    }
   },
   {
     "entry_id": "GL022",
@@ -283,7 +409,13 @@
     "counter_account": "6300",
     "counterparty": "Mason & Reed CPAs",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Professional Services - Mason & Reed CPAs",
+      "sent_counterparty": "Mason & Reed CPAs"
+    }
   },
   {
     "entry_id": "GL023",
@@ -296,7 +428,13 @@
     "counter_account": "2000",
     "counterparty": "BoxCraft Packaging",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor payment - BoxCraft Packaging INV-3381",
+      "sent_counterparty": "BoxCraft Packaging"
+    }
   },
   {
     "entry_id": "GL024",
@@ -309,7 +447,13 @@
     "counter_account": "2000",
     "counterparty": "Xiamen Pacific Trading",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Wire Transfer - Supplier Payment - Xiamen Pacific Trading",
+      "sent_counterparty": "Xiamen Pacific Trading"
+    }
   },
   {
     "entry_id": "GL025",
@@ -322,7 +466,13 @@
     "counter_account": "1350",
     "counterparty": "Payroll advance - James Wilson",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Payroll Advance - Payroll advance - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL026",
@@ -335,7 +485,13 @@
     "counter_account": "4900",
     "counterparty": "Northwind Outfitters",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Refund - Return - Northwind Outfitters",
+      "sent_counterparty": "Northwind Outfitters"
+    }
   },
   {
     "entry_id": "GL027",
@@ -348,7 +504,13 @@
     "counter_account": "6600",
     "counterparty": "SparkleClean Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Cleaning Service - SparkleClean Services",
+      "sent_counterparty": "SparkleClean Services"
+    }
   },
   {
     "entry_id": "GL028",
@@ -361,7 +523,13 @@
     "counter_account": "6750",
     "counterparty": "David Okafor",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Travel Expense Reimbursement - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL029",
@@ -374,7 +542,13 @@
     "counter_account": "1300",
     "counterparty": "Keystone Facility Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Deposit - Future Services - Keystone Facility Services",
+      "sent_counterparty": "Keystone Facility Services"
+    }
   },
   {
     "entry_id": "GL030",
@@ -387,7 +561,13 @@
     "counter_account": "6600",
     "counterparty": "ProServ Equipment Repair",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Equipment Maintenance - ProServ Equipment Repair",
+      "sent_counterparty": "ProServ Equipment Repair"
+    }
   },
   {
     "entry_id": "GL031",
@@ -400,7 +580,13 @@
     "counter_account": "6300",
     "counterparty": "Harbor Consulting Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Consulting - Project ABC - Harbor Consulting Group",
+      "sent_counterparty": "Harbor Consulting Group"
+    }
   },
   {
     "entry_id": "GL032",
@@ -413,7 +599,13 @@
     "counter_account": "6900",
     "counterparty": "Riverbend Food Pantry",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Donation - Charity Event - Riverbend Food Pantry",
+      "sent_counterparty": "Riverbend Food Pantry"
+    }
   },
   {
     "entry_id": "GL033",
@@ -426,7 +618,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Product Purchase - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL034",
@@ -439,7 +637,13 @@
     "counter_account": "6100",
     "counterparty": "Metro Water & Sewer",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Check Payment - Utilities - Metro Water & Sewer",
+      "sent_counterparty": "Metro Water & Sewer"
+    }
   },
   {
     "entry_id": "GL035",
@@ -452,7 +656,13 @@
     "counter_account": "6150",
     "counterparty": "FiberLink Internet",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Check Payment - Internet - FiberLink Internet",
+      "sent_counterparty": "FiberLink Internet"
+    }
   },
   {
     "entry_id": "GL036",
@@ -465,7 +675,13 @@
     "counter_account": "6150",
     "counterparty": "Lakeshore Telecom",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Check Payment - Phone - Lakeshore Telecom",
+      "sent_counterparty": "Lakeshore Telecom"
+    }
   },
   {
     "entry_id": "GL037",
@@ -478,7 +694,13 @@
     "counter_account": "2000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Bulk Order - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL038",
@@ -491,7 +713,13 @@
     "counter_account": "6200",
     "counterparty": "Employee bonus - Maria Gonzalez",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Employee Bonus Distribution - Employee bonus - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL039",
@@ -504,7 +732,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Inventory Purchase - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL040",
@@ -517,7 +751,13 @@
     "counter_account": "6000",
     "counterparty": "Lakeview Properties LLC",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Rent Payment - Lakeview Properties LLC",
+      "sent_counterparty": "Lakeview Properties LLC"
+    }
   },
   {
     "entry_id": "GL041",
@@ -530,7 +770,13 @@
     "counter_account": "6510",
     "counterparty": "StreamDesk",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Subscription Service - StreamDesk",
+      "sent_counterparty": "StreamDesk"
+    }
   },
   {
     "entry_id": "GL042",
@@ -543,7 +789,13 @@
     "counter_account": "2300",
     "counterparty": "Northwind Outfitters",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Advance - Prepayment - Northwind Outfitters",
+      "sent_counterparty": "Northwind Outfitters"
+    }
   },
   {
     "entry_id": "GL043",
@@ -556,7 +808,13 @@
     "counter_account": "6400",
     "counterparty": "BrightPath Media",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Marketing Campaign - BrightPath Media",
+      "sent_counterparty": "BrightPath Media"
+    }
   },
   {
     "entry_id": "GL044",
@@ -569,7 +827,13 @@
     "counter_account": "6600",
     "counterparty": "ProServ Equipment Repair",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Repairs & Maintenance - ProServ Equipment Repair",
+      "sent_counterparty": "ProServ Equipment Repair"
+    }
   },
   {
     "entry_id": "GL045",
@@ -582,7 +846,13 @@
     "counter_account": "2000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor payment - Widget Co. INV-5520",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL046",
@@ -595,7 +865,13 @@
     "counter_account": "4900",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Sales Return - Refund - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL047",
@@ -608,7 +884,13 @@
     "counter_account": "1200",
     "counterparty": "Lakeside Cafe",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - customer check #3116 Lakeside Cafe",
+      "sent_counterparty": "Lakeside Cafe"
+    }
   },
   {
     "entry_id": "GL048",
@@ -621,7 +903,13 @@
     "counter_account": "6200",
     "counterparty": "PayFlow Payroll Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Payroll Processing - PayFlow Payroll Services",
+      "sent_counterparty": "PayFlow Payroll Services"
+    }
   },
   {
     "entry_id": "GL049",
@@ -634,7 +922,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Supplies - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL050",
@@ -647,7 +941,13 @@
     "counter_account": "6750",
     "counterparty": "Rosewood Steakhouse",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Client Entertainment - Rosewood Steakhouse",
+      "sent_counterparty": "Rosewood Steakhouse"
+    }
   },
   {
     "entry_id": "GL051",
@@ -660,7 +960,13 @@
     "counter_account": "6700",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Insurance - Additional Coverage - Granite Mutual Insurance",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL052",
@@ -673,7 +979,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Discount Applied - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL053",
@@ -686,7 +998,13 @@
     "counter_account": "6000",
     "counterparty": "Midwest Equipment Leasing",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Equipment Lease - Midwest Equipment Leasing",
+      "sent_counterparty": "Midwest Equipment Leasing"
+    }
   },
   {
     "entry_id": "GL054",
@@ -699,7 +1017,13 @@
     "counter_account": "6760",
     "counterparty": "SkillForge Academy",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Training & Development - SkillForge Academy",
+      "sent_counterparty": "SkillForge Academy"
+    }
   },
   {
     "entry_id": "GL055",
@@ -712,7 +1036,13 @@
     "counter_account": "6850",
     "counterparty": "Swift Lane Freight",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Freight & Shipping - Swift Lane Freight",
+      "sent_counterparty": "Swift Lane Freight"
+    }
   },
   {
     "entry_id": "GL056",
@@ -725,7 +1055,13 @@
     "counter_account": "4000",
     "counterparty": "Evening cash deposit",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - Evening Cash - Evening cash deposit",
+      "sent_counterparty": "Evening cash deposit"
+    }
   },
   {
     "entry_id": "GL057",
@@ -738,7 +1074,13 @@
     "counter_account": "6300",
     "counterparty": "Brightline Contracting",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Payment - Contractor Invoice - Brightline Contracting",
+      "sent_counterparty": "Brightline Contracting"
+    }
   },
   {
     "entry_id": "GL058",
@@ -751,7 +1093,13 @@
     "counter_account": "2000",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Emergency Supplies - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL059",
@@ -764,7 +1112,13 @@
     "counter_account": "4900",
     "counterparty": "Lakeside Cafe",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Refund to Customer - Lakeside Cafe",
+      "sent_counterparty": "Lakeside Cafe"
+    }
   },
   {
     "entry_id": "GL060",
@@ -777,7 +1131,13 @@
     "counter_account": "6200",
     "counterparty": "PayFlow Payroll Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "ACH Payroll - Bi-Weekly - PayFlow Payroll Services",
+      "sent_counterparty": "PayFlow Payroll Services"
+    }
   },
   {
     "entry_id": "GL061",
@@ -790,7 +1150,13 @@
     "counter_account": "1500",
     "counterparty": "Oak & Iron Furniture",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Furniture Purchase - Oak & Iron Furniture",
+      "sent_counterparty": "Oak & Iron Furniture"
+    }
   },
   {
     "entry_id": "GL062",
@@ -803,7 +1169,13 @@
     "counter_account": "6760",
     "counterparty": "RetailTech Summit 2026",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Conference Registration - RetailTech Summit 2026",
+      "sent_counterparty": "RetailTech Summit 2026"
+    }
   },
   {
     "entry_id": "GL063",
@@ -816,7 +1188,13 @@
     "counter_account": "6750",
     "counterparty": "State Tollway",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Toll & Transportation - State Tollway",
+      "sent_counterparty": "State Tollway"
+    }
   },
   {
     "entry_id": "GL064",
@@ -829,7 +1207,13 @@
     "counter_account": "6600",
     "counterparty": "Sentinel Alarm Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Security System Monitoring - Sentinel Alarm Co.",
+      "sent_counterparty": "Sentinel Alarm Co."
+    }
   },
   {
     "entry_id": "GL065",
@@ -842,7 +1226,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Rebate Received - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL066",
@@ -855,7 +1245,13 @@
     "counter_account": "6510",
     "counterparty": "CloudLedger Software",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Software Support Contract - CloudLedger Software",
+      "sent_counterparty": "CloudLedger Software"
+    }
   },
   {
     "entry_id": "GL067",
@@ -868,7 +1264,13 @@
     "counter_account": "2000",
     "counterparty": "XYZ Industrial Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Wire Transfer - Supplier XYZ - XYZ Industrial Supply",
+      "sent_counterparty": "XYZ Industrial Supply"
+    }
   },
   {
     "entry_id": "GL068",
@@ -881,7 +1283,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Inventory Adjustment - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL069",
@@ -894,7 +1302,13 @@
     "counter_account": "6200",
     "counterparty": "Michael Chen",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Employee Salary - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL070",
@@ -907,7 +1321,13 @@
     "counter_account": "6100",
     "counterparty": "Metro Water & Sewer",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Utility - Water & Sewer - Metro Water & Sewer",
+      "sent_counterparty": "Metro Water & Sewer"
+    }
   },
   {
     "entry_id": "GL071",
@@ -920,7 +1340,13 @@
     "counter_account": "6990",
     "counterparty": "Petty cash",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Petty Cash Replenishment",
+      "sent_counterparty": "Petty cash"
+    }
   },
   {
     "entry_id": "GL072",
@@ -933,7 +1359,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Supply Order - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL073",
@@ -946,7 +1378,13 @@
     "counter_account": "2300",
     "counterparty": "Northwind Outfitters",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Deposit Received - Northwind Outfitters",
+      "sent_counterparty": "Northwind Outfitters"
+    }
   },
   {
     "entry_id": "GL074",
@@ -959,7 +1397,13 @@
     "counter_account": "6950",
     "counterparty": "Swift Lane Freight",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Late Payment Penalty - Swift Lane Freight",
+      "sent_counterparty": "Swift Lane Freight"
+    }
   },
   {
     "entry_id": "GL075",
@@ -972,7 +1416,13 @@
     "counter_account": "6300",
     "counterparty": "Tech Solutions Inc.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "IT Support Services - Tech Solutions Inc.",
+      "sent_counterparty": "Tech Solutions Inc."
+    }
   },
   {
     "entry_id": "GL076",
@@ -985,7 +1435,13 @@
     "counter_account": "1500",
     "counterparty": "Tech Solutions Inc.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Equipment Upgrade - Tech Solutions Inc.",
+      "sent_counterparty": "Tech Solutions Inc."
+    }
   },
   {
     "entry_id": "GL077",
@@ -998,7 +1454,13 @@
     "counter_account": "6510",
     "counterparty": "Midwest Retailers Assn",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Annual Membership Renewal - Midwest Retailers Assn",
+      "sent_counterparty": "Midwest Retailers Assn"
+    }
   },
   {
     "entry_id": "GL111",
@@ -1011,7 +1473,13 @@
     "counter_account": "1200",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer payment INV-1042 - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL112",
@@ -1024,7 +1492,13 @@
     "counter_account": "1200",
     "counterparty": "Northwind Outfitters",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer payment INV-1043 - Northwind Outfitters",
+      "sent_counterparty": "Northwind Outfitters"
+    }
   },
   {
     "entry_id": "GL113",
@@ -1037,7 +1511,13 @@
     "counter_account": "1200",
     "counterparty": "Lakeside Cafe",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer payment INV-1044 - Lakeside Cafe",
+      "sent_counterparty": "Lakeside Cafe"
+    }
   },
   {
     "entry_id": "GL078",
@@ -1050,7 +1530,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - Vendor Refund - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL079",
@@ -1063,7 +1549,13 @@
     "counter_account": "1200",
     "counterparty": "Lakeside Cafe",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "NSF reversal - customer check #3116 Lakeside Cafe",
+      "sent_counterparty": "Lakeside Cafe"
+    }
   },
   {
     "entry_id": "GL080",
@@ -1076,7 +1568,13 @@
     "counter_account": "6300",
     "counterparty": "Elm Street Advisors",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Consulting Payment - Elm Street Advisors",
+      "sent_counterparty": "Elm Street Advisors"
+    }
   },
   {
     "entry_id": "GL081",
@@ -1089,7 +1587,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Inventory Purchase - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL082",
@@ -1102,7 +1606,13 @@
     "counter_account": "6210",
     "counterparty": "IRS EFTPS",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Payroll Taxes - IRS EFTPS",
+      "sent_counterparty": "IRS EFTPS"
+    }
   },
   {
     "entry_id": "GL083",
@@ -1115,7 +1625,13 @@
     "counter_account": "6000",
     "counterparty": "Lakeview Properties LLC",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Lease - Lakeview Properties LLC",
+      "sent_counterparty": "Lakeview Properties LLC"
+    }
   },
   {
     "entry_id": "GL084",
@@ -1128,7 +1644,13 @@
     "counter_account": "6400",
     "counterparty": "BrightPath Media",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Marketing Expense - BrightPath Media",
+      "sent_counterparty": "BrightPath Media"
+    }
   },
   {
     "entry_id": "GL085",
@@ -1141,7 +1663,13 @@
     "counter_account": "4900",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Refund - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL086",
@@ -1154,7 +1682,13 @@
     "counter_account": "6600",
     "counterparty": "Keystone Facility Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Building Maintenance - Keystone Facility Services",
+      "sent_counterparty": "Keystone Facility Services"
+    }
   },
   {
     "entry_id": "GL087",
@@ -1167,7 +1701,13 @@
     "counter_account": "6760",
     "counterparty": "SkillForge Academy",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Professional Development - SkillForge Academy",
+      "sent_counterparty": "SkillForge Academy"
+    }
   },
   {
     "entry_id": "GL088",
@@ -1180,7 +1720,13 @@
     "counter_account": "6850",
     "counterparty": "Swift Lane Freight",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Shipping & Logistics - Swift Lane Freight",
+      "sent_counterparty": "Swift Lane Freight"
+    }
   },
   {
     "entry_id": "GL089",
@@ -1193,7 +1739,13 @@
     "counter_account": "4000",
     "counterparty": "Daily sales deposit",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - Daily Sales - Daily sales deposit",
+      "sent_counterparty": "Daily sales deposit"
+    }
   },
   {
     "entry_id": "GL090",
@@ -1206,7 +1758,13 @@
     "counter_account": "2000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL091",
@@ -1219,7 +1777,13 @@
     "counter_account": "6100",
     "counterparty": "Prairie Gas & Light",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "ACH Payment - Utilities - Prairie Gas & Light",
+      "sent_counterparty": "Prairie Gas & Light"
+    }
   },
   {
     "entry_id": "GL092",
@@ -1232,7 +1796,13 @@
     "counter_account": "6000",
     "counterparty": "Midwest Equipment Rentals",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Equipment Rental - Midwest Equipment Rentals",
+      "sent_counterparty": "Midwest Equipment Rentals"
+    }
   },
   {
     "entry_id": "GL093",
@@ -1245,7 +1815,13 @@
     "counter_account": "4200",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Client Reimbursement - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL094",
@@ -1258,7 +1834,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Supplies - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL095",
@@ -1271,7 +1853,13 @@
     "counter_account": "4200",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Insurance Claim Reimbursement - Granite Mutual Insurance",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL096",
@@ -1284,7 +1872,13 @@
     "counter_account": "6300",
     "counterparty": "Brightline Contracting",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Contractor Invoice - Brightline Contracting",
+      "sent_counterparty": "Brightline Contracting"
+    }
   },
   {
     "entry_id": "GL097",
@@ -1297,7 +1891,13 @@
     "counter_account": "6510",
     "counterparty": "CloudLedger Software",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Software Updates - CloudLedger Software",
+      "sent_counterparty": "CloudLedger Software"
+    }
   },
   {
     "entry_id": "GL098",
@@ -1310,7 +1910,13 @@
     "counter_account": "6750",
     "counterparty": "David Okafor",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": true,
+      "sent_to_model": "Employee Travel Reimbursement - [PERSON]",
+      "sent_counterparty": "[PERSON]"
+    }
   },
   {
     "entry_id": "GL099",
@@ -1323,7 +1929,13 @@
     "counter_account": "6990",
     "counterparty": "Various",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Miscellaneous Expense",
+      "sent_counterparty": "Various"
+    }
   },
   {
     "entry_id": "GL100",
@@ -1336,7 +1948,13 @@
     "counter_account": "1200",
     "counterparty": "Monthly AR collections",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - Monthly Collections - Monthly AR collections",
+      "sent_counterparty": "Monthly AR collections"
+    }
   },
   {
     "entry_id": "GL101",
@@ -1349,7 +1967,13 @@
     "counter_account": "6000",
     "counterparty": "Lakeview Properties LLC",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Lease Payment - Lakeview Properties LLC",
+      "sent_counterparty": "Lakeview Properties LLC"
+    }
   },
   {
     "entry_id": "GL102",
@@ -1362,7 +1986,13 @@
     "counter_account": "6200",
     "counterparty": "PayFlow Payroll Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Payroll Processing - PayFlow Payroll Services",
+      "sent_counterparty": "PayFlow Payroll Services"
+    }
   },
   {
     "entry_id": "GL103",
@@ -1375,7 +2005,13 @@
     "counter_account": "5000",
     "counterparty": "Widget Co.",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Inventory Purchase - Widget Co.",
+      "sent_counterparty": "Widget Co."
+    }
   },
   {
     "entry_id": "GL104",
@@ -1388,7 +2024,13 @@
     "counter_account": "2000",
     "counterparty": "Keystone Facility Services",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Vendor Payment - Services - Keystone Facility Services",
+      "sent_counterparty": "Keystone Facility Services"
+    }
   },
   {
     "entry_id": "GL105",
@@ -1401,7 +2043,13 @@
     "counter_account": "1500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Office Equipment - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL106",
@@ -1414,7 +2062,13 @@
     "counter_account": "4900",
     "counterparty": "Acme Retail Group",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Customer Refund - Acme Retail Group",
+      "sent_counterparty": "Acme Retail Group"
+    }
   },
   {
     "entry_id": "GL107",
@@ -1427,7 +2081,13 @@
     "counter_account": "6700",
     "counterparty": "Granite Mutual Insurance",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Insurance Premium - Granite Mutual Insurance",
+      "sent_counterparty": "Granite Mutual Insurance"
+    }
   },
   {
     "entry_id": "GL108",
@@ -1440,7 +2100,13 @@
     "counter_account": "6750",
     "counterparty": "Various",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Travel & Meals",
+      "sent_counterparty": "Various"
+    }
   },
   {
     "entry_id": "GL109",
@@ -1453,7 +2119,13 @@
     "counter_account": "6500",
     "counterparty": "DeskPro Supply",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Supplies - DeskPro Supply",
+      "sent_counterparty": "DeskPro Supply"
+    }
   },
   {
     "entry_id": "GL110",
@@ -1466,7 +2138,13 @@
     "counter_account": "6300",
     "counterparty": "Mason & Reed CPAs",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Professional Fees - Mason & Reed CPAs",
+      "sent_counterparty": "Mason & Reed CPAs"
+    }
   },
   {
     "entry_id": "GL114",
@@ -1479,6 +2157,12 @@
     "counter_account": "4000",
     "counterparty": "Daily sales deposit",
     "recon_status": "unmatched",
-    "item_id": null
+    "item_id": null,
+    "guardrail": {
+      "injection_flagged": false,
+      "pii_masked": false,
+      "sent_to_model": "Deposit - daily sales Oct 10",
+      "sent_counterparty": "Daily sales deposit"
+    }
   }
 ]

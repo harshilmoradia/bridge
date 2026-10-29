@@ -39,6 +39,12 @@ async def test_bank_transactions_are_unmatched_before_any_run(client: AsyncClien
         "running_balance": "209075.00",
         "recon_status": "unmatched",
         "item_id": None,
+        "guardrail": {
+            "injection_flagged": False,
+            "pii_masked": False,
+            "sent_to_model": "CHECK 3105",
+            "sent_counterparty": None,
+        },
     }
 
 
@@ -71,6 +77,12 @@ async def test_gl_entries_carry_ledger_fields(client: AsyncClient):
         "counterparty": "CloudLedger Software",
         "recon_status": "unmatched",
         "item_id": None,
+        "guardrail": {
+            "injection_flagged": False,
+            "pii_masked": False,
+            "sent_to_model": "Software License Renewal - CloudLedger Software",
+            "sent_counterparty": "CloudLedger Software",
+        },
     }
 
 

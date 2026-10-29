@@ -14,6 +14,13 @@ class DatasetOut(BaseModel):
     period_end: date
 
 
+class Guardrail(BaseModel):
+    injection_flagged: bool = Field(description="The text reads like an instruction to the model: treated as data")
+    pii_masked: bool = Field(description="Masking changed the text before it reaches a model")
+    sent_to_model: str = Field(description="The description exactly as the agents' prompt carries it")
+    sent_counterparty: str | None = Field(default=None, description="GL only: the counterparty as sent")
+
+
 class BankTransactionOut(BaseModel):
     txn_id: str = Field(examples=["BANK001"])
     posted_date: date
@@ -24,6 +31,7 @@ class BankTransactionOut(BaseModel):
     running_balance: Money | None
     recon_status: ReconStatus
     item_id: str | None = Field(description="The latest run's item that covers this row, if any")
+    guardrail: Guardrail
 
 
 class GlEntryOut(BaseModel):
@@ -38,6 +46,7 @@ class GlEntryOut(BaseModel):
     counterparty: str | None
     recon_status: ReconStatus
     item_id: str | None
+    guardrail: Guardrail
 
 
 class StatementLine(BaseModel):

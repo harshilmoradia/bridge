@@ -1,6 +1,6 @@
 // Pure filter/sort logic for the reconciliation tables. Money stays a decimal string; compared as integer cents.
 import { toCents } from './cents.ts';
-import type { BankTransaction, GlEntry, ReconStatus } from '../api/types.ts';
+import type { BankTransaction, GlEntry, Guardrail, ReconStatus } from '../api/types.ts';
 
 export interface TxRow {
     id: string;
@@ -11,6 +11,8 @@ export interface TxRow {
     status: ReconStatus;
     itemId: string | null;
     extra: string; // check number, counterparty... shown small and searchable
+    original?: { description: string; counterparty: string | null }; // the stored text, beside guardrail.sent_to_model
+    guardrail?: Guardrail;
 }
 
 export type SortKey = 'date' | 'description' | 'type' | 'amount' | 'status';
@@ -52,11 +54,13 @@ export const distinct = (values: string[]) => [...new Set(values)].sort();
 export const bankToRow = (r: BankTransaction): TxRow => ({
     id: r.txn_id, date: r.posted_date, description: r.description, amount: r.amount, type: r.type,
     status: r.recon_status, itemId: r.item_id, extra: r.check_number ? `check ${r.check_number}` : '',
+    original: { description: r.description, counterparty: null }, guardrail: r.guardrail,
 });
 
 export const glToRow = (r: GlEntry): TxRow => ({
     id: r.entry_id, date: r.date, description: r.description, amount: r.amount, type: r.method,
     status: r.recon_status, itemId: r.item_id, extra: [r.check_number && `check ${r.check_number}`, r.counterparty].filter(Boolean).join(' · '),
+    original: { description: r.description, counterparty: r.counterparty }, guardrail: r.guardrail,
 });
 
 // Keep only selected ids that are still visible, so hidden rows never count as selected.
