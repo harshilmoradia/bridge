@@ -595,7 +595,31 @@ class DbStore:
                 if row is None:
                     raise run_not_found(run_id)
             items = await (await conn.execute(
-                "select id::text, status, bank_ids, gl_ids from items where run_id::text = %s order by created_at",
+                """
+                select i.id::text, i.status, i.bank_ids, i.gl_ids, i.kind,
+                       pe.id::text as entry_id, pe.debit_account, pe.credit_account,
+                       pe.amount as entry_amount, pe.memo as entry_memo
+                from items i left join proposed_entries pe on pe.item_id = i.id
+                where i.run_id::text = %s order by i.created_at
+                """,
                 (run_id,),
             )).fetchall()
-            return RunItems(run_id=run_id, items=tuple(ItemRef(**r) for r in items))
+            refs = []
+            for row in items:
+                entry = None
+                if row.get("entry_id") is not None:
+                    entry = ProposedEntry(
+                        debit_account=row["debit_account"],
+                        credit_account=row["credit_account"],
+                        amount=row["entry_amount"],
+                        memo=row["entry_memo"],
+                    )
+                refs.append(ItemRef(
+                    id=row["id"],
+                    status=row["status"],
+                    bank_ids=tuple(row["bank_ids"]),
+                    gl_ids=tuple(row["gl_ids"]),
+                    kind=row["kind"],
+                    entry=entry,
+                ))
+            return RunItems(run_id=run_id, items=tuple(refs))

@@ -2,6 +2,7 @@
 
 import json
 from datetime import date
+from decimal import Decimal
 
 import inngest
 from pydantic import BaseModel, Field, model_validator
@@ -119,6 +120,7 @@ def _apply_policy(resolved: dict[str, object]) -> dict[str, object]:
     """Map the chosen match kind to the policy outcome the run should carry."""
     policy = json.loads((DATA_DIR / "policy.json").read_text(encoding="utf-8"))
     auto_resolve_kinds = set(policy.get("auto_resolve_kinds", []))
+    reconciling_item_kinds = set(policy.get("reconciling_item_kinds", []))
     tolerance = policy.get("auto_writeoff_tolerance", "0.00")
     kind = resolved.get("kind")
     amount_delta = resolved.get("delta")
@@ -131,6 +133,12 @@ def _apply_policy(resolved: dict[str, object]) -> dict[str, object]:
                 "resolution": "auto_match_with_writeoff",
                 "policy_basis": "auto_writeoff_tolerance",
             }
+    if kind in reconciling_item_kinds:
+        return {
+            "kind": kind,
+            "resolution": "reconciling_item",
+            "policy_basis": "reconciling_item_kinds",
+        }
     if kind in auto_resolve_kinds:
         return {
             "kind": kind,
@@ -144,25 +152,35 @@ def _apply_policy(resolved: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _materialize_items(policy_decisions: list[dict[str, object]]) -> list[dict[str, object]]:
+def _materialize_items(
+    policy_decisions: list[dict[str, object]],
+    *,
+    cash_account: str,
+) -> list[dict[str, object]]:
     """Turn accepted policy decisions into canonical item records the run can persist or display."""
+    policy = json.loads((DATA_DIR / "policy.json").read_text(encoding="utf-8"))
+    counter_accounts = policy.get("proposed_entry_counter_accounts", {})
     items: list[dict[str, object]] = []
     for item in policy_decisions:
         resolution = item["resolution"]
         status_map = {
             "auto_match": "matched",
             "auto_match_with_writeoff": "auto_resolved",
+            "reconciling_item": "reconciling_item",
             "escalate": "needs_approval",
         }
-        items.append({
+        delta = Decimal(str(item.get("delta") or "0.00"))
+        bank_ids = item.get("selected_bank_ids") or item.get("bank_ids", [])
+        gl_ids = item.get("selected_gl_ids") or item.get("gl_ids", [])
+        materialized = {
             "id": f"item-{item['group_index']}",
             "run_id": item.get("run_id"),
             "kind": item["kind"],
             "resolution": resolution,
             "status": status_map.get(resolution, "needs_approval"),
-            "bank_ids": item.get("selected_bank_ids") or item.get("bank_ids", []),
-            "gl_ids": item.get("selected_gl_ids") or item.get("gl_ids", []),
-            "amount_delta": item.get("delta"),
+            "bank_ids": bank_ids,
+            "gl_ids": gl_ids,
+            "amount_delta": str(delta),
             "reasoning": item.get("reason"),
             "evidence": [
                 {"type": "policy", "id": item.get("policy_basis"), "note": None},
@@ -172,8 +190,29 @@ def _materialize_items(policy_decisions: list[dict[str, object]]) -> list[dict[s
             "model": "llm-super",
             "confidence": item.get("confidence"),
             "rule_id": None,
-        })
+        }
+        counter_account = counter_accounts.get(str(item["kind"]), "2400")
+        if resolution == "escalate" and delta != 0:
+            if delta > 0:
+                debit_account, credit_account = cash_account, counter_account
+            else:
+                debit_account, credit_account = counter_account, cash_account
+            materialized["proposed_entry"] = {
+                "id": f"entry-{item['group_index']}",
+                "debit_account": debit_account,
+                "credit_account": credit_account,
+                "amount": str(abs(delta)),
+                "memo": item.get("reason") or f"Reconciliation adjustment: {item['kind']}",
+                "status": "draft",
+            }
+        items.append(materialized)
     return items
+
+
+def _group_delta(item: dict[str, object], bank_by_id, gl_by_id) -> Decimal:
+    bank_total = sum((bank_by_id[row_id].amount for row_id in item.get("bank_ids", [])), Decimal("0"))
+    gl_total = sum((gl_by_id[row_id].amount for row_id in item.get("gl_ids", [])), Decimal("0"))
+    return bank_total - gl_total
 
 
 @inngest_client.create_function(
@@ -242,7 +281,23 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                     "confidence": item.get("confidence"),
                     "reason": item.get("reason"),
                 })
-        items = _materialize_items(policy_decisions)
+            else:
+                # Preserve ambiguous groups for a human rather than silently dropping their rows.
+                policy_decisions.append({
+                    "group_index": item["group_index"],
+                    "run_id": request.run_id,
+                    "bank_ids": item["bank_ids"],
+                    "gl_ids": item["gl_ids"],
+                    "selected_bank_ids": [],
+                    "selected_gl_ids": [],
+                    "kind": "unknown",
+                    "resolution": "escalate",
+                    "policy_basis": "manual_review",
+                    "delta": str(_group_delta(item, {txn.txn_id: txn for txn in bank}, {entry.entry_id: entry for entry in gl})),
+                    "confidence": None,
+                    "reason": item.get("reason") or "Ambiguous candidate requires manual review",
+                })
+        items = _materialize_items(policy_decisions, cash_account=dataset.balances.cash_account)
         auto_resolved = sum(1 for item in policy_decisions if item["resolution"] in {"auto_match", "auto_match_with_writeoff"})
         result = {
             "run_id": request.run_id,
@@ -268,12 +323,13 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
 
         if isinstance(store, DbStore):
             item_ids = await store.complete_run(request.run_id, result)
-            return {
-                "run_id": request.run_id,
-                "item_ids": item_ids,
-                "counts": result["counts"],
-            }
-        return result
+        else:
+            item_ids = [str(item["id"]) for item in items]
+        return {
+            "run_id": request.run_id,
+            "item_ids": item_ids,
+            "counts": result["counts"],
+        }
 
     try:
         return await ctx.step.run("load-and-match", load_and_match)

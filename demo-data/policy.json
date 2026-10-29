@@ -22,6 +22,14 @@
     "unidentified_receipt",
     "unknown"
   ],
+  "proposed_entry_counter_accounts": {
+    "bank_fee_missing_in_gl": "6800",
+    "interest_missing_in_gl": "4100",
+    "duplicate_gl_entry": "2400",
+    "transposition": "2400",
+    "unidentified_receipt": "2400",
+    "unknown": "2400"
+  },
   "max_auto_amount": "10000.00",
   "notes": "Escalated items carry a draft journal entry. Nothing posts without human approval, except rounding write-offs within tolerance."
 }

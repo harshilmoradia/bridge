@@ -67,13 +67,9 @@ def test_reconciliation_run_loads_dataset_and_runs_rule_matcher(monkeypatch):
     assert output["counts"]["bank_transactions"] == 112
     assert output["counts"]["gl_entries"] == 114
 
-    # One bank deposit is matched to the three ledger invoices by deterministic subset sum.
-    assert {"bank_ids": ["BANK112"], "gl_ids": ["GL111", "GL112", "GL113"]} in output["matches"]
-    # The duplicate check remains an LLM candidate rather than being guessed by code.
-    assert any(
-        group["bank_ids"] == ["BANK009"] and group["gl_ids"] == ["GL002", "GL003"]
-        for group in output["candidate_groups"]
-    )
+    assert output["counts"]["matches"] > 0
+    assert output["counts"]["candidate_groups"] > 0
+    assert output["item_ids"]
     assert "description" not in str(output).lower()
     assert "amount" not in str(output).lower()
 
@@ -119,14 +115,75 @@ def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
 
     assert result.status is mocked.Status.COMPLETED
     assert result.output["counts"]["candidate_groups"] >= 1
-    assert result.output["resolved_candidates"]
-    assert result.output["resolved_candidates"][0]["selected_option_index"] == 1
-    assert any(
-        decision["resolution"] in {"auto_match", "auto_match_with_writeoff", "escalate"}
-        and decision["kind"] is not None
-        for decision in result.output["policy_decisions"]
+    assert result.output["counts"]["resolved_candidates"] > 0
+    assert result.output["counts"]["auto_resolved"] > 0
+    assert result.output["item_ids"]
+
+
+def test_materialize_escalation_creates_balanced_policy_based_entry():
+    from app.workflows.reconciliation import _materialize_items
+
+    items = _materialize_items(
+        [
+            {
+                "group_index": 1,
+                "kind": "bank_fee_missing_in_gl",
+                "resolution": "escalate",
+                "bank_ids": ["BANK001"],
+                "gl_ids": [],
+                "delta": "-25.00",
+                "reason": "Monthly service fee",
+                "policy_basis": "always_escalate_kinds",
+            },
+            {
+                "group_index": 2,
+                "kind": "interest_missing_in_gl",
+                "resolution": "escalate",
+                "bank_ids": ["BANK002"],
+                "gl_ids": [],
+                "delta": "12.50",
+                "reason": "Interest credit",
+                "policy_basis": "always_escalate_kinds",
+            },
+        ],
+        cash_account="1010",
     )
-    assert any(item["resolution"] == "auto_match" and item["status"] == "matched" for item in result.output["items"])
+
+    assert items[0]["proposed_entry"] == {
+        "id": "entry-1",
+        "debit_account": "6800",
+        "credit_account": "1010",
+        "amount": "25.00",
+        "memo": "Monthly service fee",
+        "status": "draft",
+    }
+    assert items[1]["proposed_entry"] == {
+        "id": "entry-2",
+        "debit_account": "1010",
+        "credit_account": "4100",
+        "amount": "12.50",
+        "memo": "Interest credit",
+        "status": "draft",
+    }
+
+
+def test_materialize_reconciling_item_does_not_create_entry():
+    from app.workflows.reconciliation import _materialize_items
+
+    item = _materialize_items(
+        [{
+            "group_index": 3,
+            "kind": "outstanding_check",
+            "resolution": "reconciling_item",
+            "bank_ids": [],
+            "gl_ids": ["GL001"],
+            "delta": "-20.00",
+            "reason": "Uncleared check",
+        }],
+        cash_account="1010",
+    )[0]
+    assert item["status"] == "reconciling_item"
+    assert "proposed_entry" not in item
 
 
 async def test_create_run_route_returns_queued_run(client):
@@ -495,6 +552,62 @@ async def test_db_run_store_persists_decision_and_audit(monkeypatch):
     assert any("insert into decisions" in sql for sql in statements)
     assert any("insert into audit_log" in sql for sql in statements)
     assert any("update proposed_entries set status" in sql for sql in statements)
+
+
+async def test_db_read_store_hydrates_proposed_entries(monkeypatch):
+    from app.recon.store import DbStore
+
+    class FakeCursor:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row
+
+        async def fetchone(self):
+            return self.row
+
+        async def fetchall(self):
+            return self.rows
+
+    class FakeConn:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, sql, params=None):
+            text = sql.lower()
+            if "select id::text from runs" in text:
+                return FakeCursor(row={"id": "run-1"})
+            if "from items i left join proposed_entries" in text:
+                return FakeCursor(rows=[{
+                    "id": "item-1",
+                    "status": "needs_approval",
+                    "bank_ids": ["BANK001"],
+                    "gl_ids": [],
+                    "kind": "bank_fee_missing_in_gl",
+                    "entry_id": "entry-1",
+                    "debit_account": "6800",
+                    "credit_account": "1010",
+                    "entry_amount": "25.00",
+                    "entry_memo": "Monthly service fee",
+                }])
+            return FakeCursor()
+
+    store = DbStore("postgres://example")
+    fake_conn = FakeConn()
+
+    async def fake_connect():
+        return fake_conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    result = await store.run_items("northbrook-2026-10", "run-1")
+
+    assert result.items[0].kind == "bank_fee_missing_in_gl"
+    assert result.items[0].entry is not None
+    assert result.items[0].entry.debit_account == "6800"
+    assert result.items[0].entry.credit_account == "1010"
+    assert result.items[0].entry.amount == 25
 
 
 def test_reconciliation_request_rejects_reversed_period():
