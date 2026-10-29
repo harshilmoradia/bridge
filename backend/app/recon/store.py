@@ -5,9 +5,10 @@ Both stores return the same domain models, so routes never know which one they t
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
+import json
 from pathlib import Path
 from typing import Protocol
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from pydantic import BaseModel, ConfigDict
 
@@ -79,6 +80,54 @@ def _empty_statement(run: Run) -> Statement:
         book=StatementSide(closing_balance=zero, lines=[], adjusted_balance=zero),
         unreconciled_difference=zero,
     )
+
+
+def _item_from_db_row(row: dict[str, object]) -> Item:
+    proposed_entry = None
+    if row.get("entry_id") is not None:
+        proposed_entry = {
+            "id": row["entry_id"],
+            "debit_account": row["debit_account"],
+            "credit_account": row["credit_account"],
+            "amount": row["entry_amount"],
+            "memo": row["entry_memo"],
+            "status": row["entry_status"],
+        }
+    fields = {
+        key: value
+        for key, value in row.items()
+        if key not in {"entry_id", "debit_account", "credit_account", "entry_amount", "entry_memo", "entry_status"}
+    }
+    return Item.model_validate({
+        **fields,
+        "evidence": row.get("evidence") or [],
+        "flags": row.get("flags") or [],
+        "proposed_entry": proposed_entry,
+    })
+
+
+def _decision_response(item: Item, run: Run) -> DecisionResponse:
+    statement = _empty_statement(run)
+    if item.proposed_entry is not None and item.status == "approved":
+        statement.book.lines.append(
+            StatementLine(
+                item_id=item.id,
+                kind=item.kind,
+                label=item.proposed_entry.memo,
+                amount=item.amount_delta,
+                status=item.status,
+                applied=True,
+                bank_ids=item.bank_ids,
+                gl_ids=item.gl_ids,
+            )
+        )
+        statement.book.adjusted_balance += Decimal(str(item.amount_delta))
+        statement.unreconciled_difference -= Decimal(str(item.amount_delta))
+    return DecisionResponse(item=item, statement=statement)
+
+
+def _persisted_item_id(run_id: str, item_id: object) -> str:
+    return str(uuid5(NAMESPACE_URL, f"bridge:{run_id}:{item_id}"))
 
 
 class MemoryRunStore:
@@ -213,6 +262,129 @@ class DbStore:
                 raise AppError(code="run_create_failed", message="Unable to create the run", status_code=500)
             return Run.model_validate({**row, "steps": []})
 
+    async def start_run(self, run_id: str) -> None:
+        async with await self._connect() as conn:
+            await conn.execute(
+                "update runs set status = 'running', updated_at = now() where id::text = %s",
+                (run_id,),
+            )
+            await conn.execute(
+                """
+                insert into run_steps (run_id, step_key, position, agent, label, model_tier, status, started_at)
+                values (%s, 'load-and-match', 1, 'reconciliation', 'Load and match transactions', 'code', 'running', now())
+                on conflict (run_id, step_key) do update set
+                    status = 'running', started_at = now(), finished_at = null, error = null
+                """,
+                (run_id,),
+            )
+
+    async def complete_run(self, run_id: str, result: dict[str, object]) -> list[str]:
+        counts = result.get("counts", {})
+        items = result.get("items", [])
+        if not isinstance(counts, dict) or not isinstance(items, list):
+            raise ValueError("Invalid reconciliation result")
+
+        status_counts = {
+            "items": len(items),
+            "matched": int(counts.get("matches", 0)) + sum(item.get("status") == "matched" for item in items),
+            "auto_resolved": int(counts.get("auto_resolved", 0)),
+            "reconciling_item": sum(item.get("status") == "reconciling_item" for item in items),
+            "needs_approval": sum(item.get("status") == "needs_approval" for item in items),
+            "unmatched": int(counts.get("unmatched_bank", 0)) + int(counts.get("unmatched_gl", 0)),
+            "bank_transactions": int(counts.get("bank_transactions", 0)),
+            "gl_entries": int(counts.get("gl_entries", 0)),
+        }
+
+        persisted_ids: list[str] = []
+        async with await self._connect() as conn:
+            for item in items:
+                item_id = _persisted_item_id(run_id, item["id"])
+                persisted_ids.append(item_id)
+                await conn.execute(
+                    """
+                    insert into items (
+                        id, run_id, kind, resolution, status, bank_ids, gl_ids, amount_delta,
+                        reasoning, evidence, flags, model, confidence, rule_id
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s)
+                    on conflict (id) do update set
+                        kind = excluded.kind, resolution = excluded.resolution,
+                        status = case when items.status in ('approved', 'rejected') then items.status else excluded.status end,
+                        bank_ids = excluded.bank_ids, gl_ids = excluded.gl_ids,
+                        amount_delta = excluded.amount_delta, reasoning = excluded.reasoning,
+                        evidence = excluded.evidence, flags = excluded.flags,
+                        model = excluded.model, confidence = excluded.confidence, rule_id = excluded.rule_id
+                    """,
+                    (
+                        item_id,
+                        run_id,
+                        item["kind"],
+                        item["resolution"],
+                        item["status"],
+                        item["bank_ids"],
+                        item["gl_ids"],
+                        item["amount_delta"] or "0.00",
+                        item.get("reasoning"),
+                        json.dumps(item.get("evidence", [])),
+                        item.get("flags", []),
+                        item.get("model"),
+                        item.get("confidence"),
+                        item.get("rule_id"),
+                    ),
+                )
+                proposed_entry = item.get("proposed_entry")
+                if isinstance(proposed_entry, dict):
+                    entry_id = str(uuid5(NAMESPACE_URL, f"bridge:{item_id}:proposed-entry"))
+                    await conn.execute(
+                        """
+                        insert into proposed_entries (id, item_id, debit_account, credit_account, amount, memo, status)
+                        values (%s, %s, %s, %s, %s, %s, %s)
+                        on conflict (id) do update set
+                            debit_account = excluded.debit_account, credit_account = excluded.credit_account,
+                            amount = excluded.amount, memo = excluded.memo,
+                            status = case when proposed_entries.status in ('approved', 'rejected', 'posted')
+                                          then proposed_entries.status else excluded.status end
+                        """,
+                        (
+                            entry_id,
+                            item_id,
+                            proposed_entry["debit_account"],
+                            proposed_entry["credit_account"],
+                            proposed_entry["amount"],
+                            proposed_entry["memo"],
+                            proposed_entry.get("status", "draft"),
+                        ),
+                    )
+
+            await conn.execute(
+                "update runs set status = 'completed', counts = %s::jsonb, updated_at = now(), error = null where id::text = %s",
+                (json.dumps(status_counts), run_id),
+            )
+            await conn.execute(
+                """
+                update run_steps set status = 'completed', finished_at = now(),
+                    output_summary = %s, error = null
+                where run_id::text = %s and step_key = 'load-and-match'
+                """,
+                (json.dumps({"items": len(items), "counts": status_counts}), run_id),
+            )
+
+        return persisted_ids
+
+    async def fail_run(self, run_id: str, message: str) -> None:
+        error = {"code": "reconciliation_failed", "message": message[:500]}
+        async with await self._connect() as conn:
+            await conn.execute(
+                "update runs set status = 'failed', error = %s::jsonb, updated_at = now() where id::text = %s",
+                (json.dumps(error), run_id),
+            )
+            await conn.execute(
+                """
+                update run_steps set status = 'failed', finished_at = now(), error = %s::jsonb
+                where run_id::text = %s and step_key = 'load-and-match'
+                """,
+                (json.dumps(error), run_id),
+            )
+
     async def get_run(self, run_id: str) -> Run | None:
         async with await self._connect() as conn:
             row = await (await conn.execute(
@@ -224,74 +396,162 @@ class DbStore:
             )).fetchone()
             if row is None:
                 return None
-            return Run.model_validate({**row, "steps": []})
+            steps = await (await conn.execute(
+                """
+                select step_key, position, agent, label, model_tier, model, status, started_at,
+                       finished_at, latency_ms, tokens_in, tokens_out, output_summary, error
+                from run_steps where run_id::text = %s order by position, step_key
+                """,
+                (run_id,),
+            )).fetchall()
+            normalized_steps = [
+                {
+                    "id": step["step_key"],
+                    "position": step["position"],
+                    "agent": step["agent"],
+                    "label": step["label"],
+                    "tier": step["model_tier"] or "code",
+                    "model": step["model"],
+                    "status": step["status"],
+                    "started_at": step["started_at"],
+                    "finished_at": step["finished_at"],
+                    "latency_ms": step["latency_ms"],
+                    "tokens_in": step["tokens_in"],
+                    "tokens_out": step["tokens_out"],
+                    "output_summary": step["output_summary"],
+                    "error": step["error"],
+                }
+                for step in steps
+            ]
+            return Run.model_validate({**row, "steps": normalized_steps})
 
     async def list_items(self, run_id: str, status: str | None = None) -> list[Item]:
         async with await self._connect() as conn:
+            query = """
+                select i.id::text, i.run_id::text, i.kind, i.resolution, i.status, i.bank_ids, i.gl_ids,
+                       i.amount_delta, i.reasoning, i.evidence, i.flags, i.model, i.confidence, i.rule_id,
+                       i.created_at, pe.id::text as entry_id, pe.debit_account, pe.credit_account,
+                       pe.amount as entry_amount, pe.memo as entry_memo, pe.status as entry_status
+                from items i left join proposed_entries pe on pe.item_id = i.id
+                where i.run_id::text = %s
+            """
             if status is None:
-                rows = await (await conn.execute(
-                    """
-                    select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
-                           amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
-                    from items where run_id::text = %s order by created_at
-                    """,
-                    (run_id,),
-                )).fetchall()
+                rows = await (await conn.execute(query + " order by i.created_at", (run_id,))).fetchall()
             else:
                 rows = await (await conn.execute(
-                    """
-                    select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
-                           amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
-                    from items where run_id::text = %s and status = %s order by created_at
-                    """,
-                    (run_id, status),
+                    query + " and i.status = %s order by i.created_at", (run_id, status)
                 )).fetchall()
-            return [Item.model_validate({**row, "evidence": row.get("evidence") or [], "flags": row.get("flags") or []}) for row in rows]
+            return [_item_from_db_row(row) for row in rows]
 
     async def decide_item(self, item_id: str, request: DecisionRequest) -> DecisionResponse:
-        item = (await self.list_items_by_id(item_id))[0]
-        item.status = "approved" if request.decision == "approve" else "rejected"
-        if item.proposed_entry is not None:
-            item.proposed_entry.status = item.status
-        if request.entry_override is not None and item.proposed_entry is not None:
-            item.proposed_entry.debit_account = request.entry_override.debit_account
-            item.proposed_entry.credit_account = request.entry_override.credit_account
-            item.proposed_entry.amount = request.entry_override.amount
-            item.proposed_entry.memo = request.entry_override.memo
-        run = await self.get_run(item.run_id)
-        if run is None:
-            raise AppError(code="run_not_found", message=f"Run {item.run_id} does not exist", status_code=404)
-        statement = _empty_statement(run)
-        if item.proposed_entry is not None and item.status == "approved":
-            statement.book.lines.append(
-                StatementLine(
-                    item_id=item.id,
-                    kind=item.kind,
-                    label=item.proposed_entry.memo,
-                    amount=item.amount_delta,
-                    status=item.status,
-                    applied=True,
-                    bank_ids=item.bank_ids,
-                    gl_ids=item.gl_ids,
-                )
+        item_status = "approved" if request.decision == "approve" else "rejected"
+        async with await self._connect() as conn:
+            row = await (await conn.execute(
+                """
+                select i.id::text, i.run_id::text, i.kind, i.resolution, i.status, i.bank_ids, i.gl_ids,
+                       i.amount_delta, i.reasoning, i.evidence, i.flags, i.model, i.confidence, i.rule_id,
+                       i.created_at, pe.id::text as entry_id, pe.debit_account, pe.credit_account,
+                       pe.amount as entry_amount, pe.memo as entry_memo, pe.status as entry_status
+                from items i left join proposed_entries pe on pe.item_id = i.id
+                where i.id::text = %s for update of i
+                """,
+                (item_id,),
+            )).fetchone()
+            if row is None:
+                raise AppError(code="item_not_found", message=f"Item {item_id} does not exist", status_code=404)
+            item = _item_from_db_row(row)
+            override = request.entry_override
+            await conn.execute("update items set status = %s where id::text = %s", (item_status, item_id))
+            if item.proposed_entry is not None:
+                if override is None:
+                    await conn.execute(
+                        "update proposed_entries set status = %s where item_id::text = %s",
+                        (item_status, item_id),
+                    )
+                else:
+                    await conn.execute(
+                        """
+                        update proposed_entries set status = %s, debit_account = %s, credit_account = %s,
+                            amount = %s, memo = %s where item_id::text = %s
+                        """,
+                        (
+                            item_status,
+                            override.debit_account,
+                            override.credit_account,
+                            override.amount,
+                            override.memo,
+                            item_id,
+                        ),
+                    )
+
+            override_json = override.model_dump(mode="json") if override is not None else None
+            await conn.execute(
+                """
+                insert into decisions (item_id, decision, actor, note, remember, entry_override)
+                values (%s, %s, 'user:api', %s, %s, %s::jsonb)
+                """,
+                (item_id, request.decision, request.note, request.remember, json.dumps(override_json)),
             )
-            statement.book.adjusted_balance = statement.book.adjusted_balance + Decimal(str(item.amount_delta))
-            statement.unreconciled_difference = statement.unreconciled_difference - Decimal(str(item.amount_delta))
-        return DecisionResponse(item=item, statement=statement)
+            await conn.execute(
+                """
+                insert into audit_log (run_id, entity_type, entity_id, action, actor, detail)
+                values (%s, 'item', %s, %s, 'user:api', %s::jsonb)
+                """,
+                (
+                    item.run_id,
+                    item_id,
+                    request.decision,
+                    json.dumps({"note": request.note, "remember": request.remember}),
+                ),
+            )
+            await conn.execute(
+                """
+                update runs set counts = jsonb_set(
+                    jsonb_set(counts, '{approved}', to_jsonb((select count(*) from items where run_id::text = %s and status = 'approved')), true),
+                    '{rejected}', to_jsonb((select count(*) from items where run_id::text = %s and status = 'rejected')), true
+                ), updated_at = now() where id::text = %s
+                """,
+                (item.run_id, item.run_id, item.run_id),
+            )
+            updated_row = await (await conn.execute(
+                """
+                select i.id::text, i.run_id::text, i.kind, i.resolution, i.status, i.bank_ids, i.gl_ids,
+                       i.amount_delta, i.reasoning, i.evidence, i.flags, i.model, i.confidence, i.rule_id,
+                       i.created_at, pe.id::text as entry_id, pe.debit_account, pe.credit_account,
+                       pe.amount as entry_amount, pe.memo as entry_memo, pe.status as entry_status
+                from items i left join proposed_entries pe on pe.item_id = i.id where i.id::text = %s
+                """,
+                (item_id,),
+            )).fetchone()
+            run_row = await (await conn.execute(
+                """
+                select id::text, dataset, period_start, period_end, status, counts, report, error, created_at, updated_at
+                from runs where id::text = %s
+                """,
+                (item.run_id,),
+            )).fetchone()
+            if run_row is None:
+                raise run_not_found(item.run_id)
+
+        updated_item = _item_from_db_row(updated_row)
+        run = Run.model_validate({**run_row, "steps": []})
+        return _decision_response(updated_item, run)
 
     async def list_items_by_id(self, item_id: str) -> list[Item]:
         async with await self._connect() as conn:
             rows = await (await conn.execute(
                 """
-                select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
-                       amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
-                from items where id::text = %s
+                select i.id::text, i.run_id::text, i.kind, i.resolution, i.status, i.bank_ids, i.gl_ids,
+                       i.amount_delta, i.reasoning, i.evidence, i.flags, i.model, i.confidence, i.rule_id,
+                       i.created_at, pe.id::text as entry_id, pe.debit_account, pe.credit_account,
+                       pe.amount as entry_amount, pe.memo as entry_memo, pe.status as entry_status
+                from items i left join proposed_entries pe on pe.item_id = i.id where i.id::text = %s
                 """,
                 (item_id,),
             )).fetchall()
             if not rows:
                 raise AppError(code="item_not_found", message=f"Item {item_id} does not exist", status_code=404)
-            return [Item.model_validate({**row, "evidence": row.get("evidence") or [], "flags": row.get("flags") or []}) for row in rows]
+            return [_item_from_db_row(row) for row in rows]
 
     async def datasets(self) -> list[Dataset]:
         async with await self._connect() as conn:

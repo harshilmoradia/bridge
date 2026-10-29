@@ -187,6 +187,8 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
     async def load_and_match() -> dict[str, object]:
         settings = get_settings()
         store: ReadStore = DbStore(settings.database_url) if settings.database_url else CsvStore(settings.dataset)
+        if isinstance(store, DbStore):
+            await store.start_run(request.run_id)
         dataset = await store.dataset(request.dataset)
         if dataset is None:
             raise ValueError(f"Dataset {request.dataset} does not exist")
@@ -242,7 +244,7 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
                 })
         items = _materialize_items(policy_decisions)
         auto_resolved = sum(1 for item in policy_decisions if item["resolution"] in {"auto_match", "auto_match_with_writeoff"})
-        return {
+        result = {
             "run_id": request.run_id,
             "matches": matches,
             "candidate_groups": candidates,
@@ -264,4 +266,22 @@ async def reconciliation_run(ctx: inngest.Context) -> dict[str, object]:
             },
         }
 
-    return await ctx.step.run("load-and-match", load_and_match)
+        if isinstance(store, DbStore):
+            item_ids = await store.complete_run(request.run_id, result)
+            return {
+                "run_id": request.run_id,
+                "item_ids": item_ids,
+                "counts": result["counts"],
+            }
+        return result
+
+    try:
+        return await ctx.step.run("load-and-match", load_and_match)
+    except Exception as exc:
+        settings = get_settings()
+        if settings.database_url:
+            try:
+                await DbStore(settings.database_url).fail_run(request.run_id, str(exc))
+            except Exception:
+                pass
+        raise

@@ -321,6 +321,182 @@ async def test_db_run_store_creates_and_fetches_runs(monkeypatch):
     assert fetched.id == run.id
 
 
+async def test_db_run_store_persists_results_and_returns_stable_item_ids(monkeypatch):
+    import json
+
+    from app.recon.store import DbStore
+
+    class FakeCursor:
+        async def fetchone(self):
+            return None
+
+        async def fetchall(self):
+            return []
+
+    class FakeConn:
+        def __init__(self):
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, sql, params=None):
+            self.calls.append((sql, params))
+            return FakeCursor()
+
+    store = DbStore("postgres://example")
+    fake_conn = FakeConn()
+
+    async def fake_connect():
+        return fake_conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    result = {
+        "counts": {"bank_transactions": 4, "gl_entries": 5, "unmatched_bank": 1, "unmatched_gl": 2},
+        "items": [
+            {
+                "id": "item-0",
+                "kind": "bank_fee_missing_in_gl",
+                "resolution": "escalate",
+                "status": "needs_approval",
+                "bank_ids": ["BANK001"],
+                "gl_ids": [],
+                "amount_delta": "5.00",
+                "reasoning": "Needs review",
+                "evidence": [],
+                "flags": [],
+                "proposed_entry": {
+                    "debit_account": "6800",
+                    "credit_account": "1010",
+                    "amount": "5.00",
+                    "memo": "Bank fee",
+                },
+            }
+        ],
+    }
+
+    item_ids = await store.complete_run("run-123", result)
+
+    assert len(item_ids) == 1
+    assert item_ids[0] != "item-0"
+    statements = [sql.lower() for sql, _ in fake_conn.calls]
+    assert any("insert into items" in sql for sql in statements)
+    assert any("insert into proposed_entries" in sql for sql in statements)
+    assert any("update runs set status = 'completed'" in sql for sql in statements)
+    assert any("update run_steps set status = 'completed'" in sql for sql in statements)
+    counts = next(params[0] for sql, params in fake_conn.calls if "update runs set status = 'completed'" in sql.lower())
+    assert json.loads(counts)["needs_approval"] == 1
+
+
+async def test_db_run_store_persists_decision_and_audit(monkeypatch):
+    from app.recon.store import DbStore
+    from app.schemas.runs import DecisionRequest
+
+    existing_item = {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "run_id": "11111111-1111-4111-8111-111111111111",
+        "kind": "bank_fee_missing_in_gl",
+        "resolution": "escalate",
+        "status": "needs_approval",
+        "bank_ids": ["BANK001"],
+        "gl_ids": [],
+        "amount_delta": "5.00",
+        "reasoning": "Needs review",
+        "evidence": [],
+        "flags": [],
+        "model": "stub",
+        "confidence": 0.8,
+        "rule_id": None,
+        "created_at": "2026-10-27T00:00:00Z",
+        "entry_id": "33333333-3333-4333-8333-333333333333",
+        "debit_account": "6800",
+        "credit_account": "1010",
+        "entry_amount": "5.00",
+        "entry_memo": "Bank fee",
+        "entry_status": "draft",
+    }
+
+    class FakeCursor:
+        def __init__(self, row=None):
+            self.row = row
+
+        async def fetchone(self):
+            return self.row
+
+        async def fetchall(self):
+            return []
+
+    class FakeConn:
+        def __init__(self):
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, sql, params=None):
+            self.calls.append((sql, params))
+            text = sql.lower()
+            if "from items i left join proposed_entries" in text:
+                if "select i.id::text" in text:
+                    if "from runs where" in text:
+                        return FakeCursor({
+                            "id": "11111111-1111-4111-8111-111111111111",
+                            "dataset": "northbrook-2026-10",
+                            "period_start": "2026-10-01",
+                            "period_end": "2026-10-10",
+                            "status": "running",
+                            "counts": {},
+                            "report": None,
+                            "error": None,
+                            "created_at": "2026-10-27T00:00:00Z",
+                            "updated_at": "2026-10-27T00:00:00Z",
+                        })
+                    row = dict(existing_item)
+                    if any("update items set status" in call_sql.lower() for call_sql, _ in self.calls):
+                        row["status"] = "approved"
+                        row["entry_status"] = "approved"
+                    return FakeCursor(row)
+            if "from runs where id::text" in text:
+                return FakeCursor({
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "dataset": "northbrook-2026-10",
+                    "period_start": "2026-10-01",
+                    "period_end": "2026-10-10",
+                    "status": "running",
+                    "counts": {},
+                    "report": None,
+                    "error": None,
+                    "created_at": "2026-10-27T00:00:00Z",
+                    "updated_at": "2026-10-27T00:00:00Z",
+                })
+            return FakeCursor()
+
+    store = DbStore("postgres://example")
+    fake_conn = FakeConn()
+
+    async def fake_connect():
+        return fake_conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    response = await store.decide_item(
+        existing_item["id"],
+        DecisionRequest(decision="approve", note="Verified", remember=True),
+    )
+
+    assert response.item.status == "approved"
+    assert response.item.proposed_entry.status == "approved"
+    statements = [sql.lower() for sql, _ in fake_conn.calls]
+    assert any("insert into decisions" in sql for sql in statements)
+    assert any("insert into audit_log" in sql for sql in statements)
+    assert any("update proposed_entries set status" in sql for sql in statements)
+
+
 def test_reconciliation_request_rejects_reversed_period():
     import pytest
     from pydantic import ValidationError
