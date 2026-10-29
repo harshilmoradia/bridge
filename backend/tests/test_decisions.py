@@ -166,8 +166,9 @@ def test_item_decided_writes_audit_and_a_remembered_rule(ran):
     assert all(isinstance(v, (int, str)) for v in remembered.output.values() if v is not None)
     (rule,) = asyncio.run(MEMORY_RUNS.list_rules())
     assert rule.id == rule_id and rule.kind == "bank_fee_missing_in_gl" and rule.active
-    assert rule.pattern == {"description_regex": "MONTHLY SERVICE FEE"}
-    assert rule.action == {"debit": "6800", "credit": "1010"}
+    # B-13 matches on direction and the approved amount too (BANK032 is a -25.00 fee: money out).
+    assert rule.pattern == {"description_regex": "MONTHLY SERVICE FEE", "direction": "out"}
+    assert rule.action == {"debit": "6800", "credit": "1010", "amount": "25.00"}
     assert (rule.source_item, rule.created_by) == (pending["BANK032"]["id"], "user:demo@bridge.local")
     audit = _decision_audit()
     assert [(a["entity_id"], a["action"], a["actor"]) for a in audit] == [
@@ -217,11 +218,14 @@ def test_learned_rules_keep_people_out_and_businesses_in():
     from app.recon.loader import load_dataset
 
     data = load_dataset(DATASET)
-    person, _ = rule_for(_gl_item("GL069"), data)  # Employee Salary - Michael Chen
-    assert "chen" not in json.dumps(person).lower() and "michael" not in json.dumps(person).lower()
+    # Employee Salary - Michael Chen: the category label before " - " is learned, the name is not,
+    # and the counterparty is a person, so it is left out.
+    salary, _ = rule_for(_gl_item("GL069"), data)
+    assert salary == {"description_regex": "Employee Salary", "direction": "in"}
     business, _ = rule_for(_gl_item("GL003"), data)  # Granite Mutual Insurance
-    assert business == {"description_regex": "Invoice payment", "counterparty": "Granite Mutual Insurance"}
-    from app.recon.decisions import _is_business
+    assert business == {"description_regex": "Invoice payment", "counterparty": "Granite Mutual Insurance",
+                        "direction": "in"}  # _gl_item's delta is +1.00
+    from app.agents.rules import _is_business
 
     for name in ("Sarah Patel", "David Okafor", "John Smith", "Payroll advance - James Wilson"):
         assert not _is_business(name, data), name

@@ -46,6 +46,15 @@ async def test_update_run_sets_status_counts_and_error():
     assert got.updated_at >= run.updated_at
 
 
+async def test_update_run_keeps_the_report_once_set():
+    store = MemoryRunStore()
+    run = await store.create_run("northbrook-2026-10", *OCT)
+    await store.update_run(run.id, status="running", report="## Report")
+    await store.update_run(run.id, status="completed")
+    got = await store.get_run(run.id)
+    assert (got.status, got.report) == ("completed", "## Report")
+
+
 async def test_replace_items_overwrites_and_filters_by_status():
     store = MemoryRunStore()
     run = await store.create_run("northbrook-2026-10", *OCT)

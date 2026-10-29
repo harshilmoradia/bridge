@@ -4,15 +4,16 @@ One call sees every leftover row, because a transposition pairs a bank line with
 line the matcher could not tie. Code then enforces that every leftover ID lands in
 exactly one item: items naming an unknown or already-used ID are dropped, and any row
 left over becomes its own `unknown` item. Review checks each kind against the rows.
+Rows whose kind code can prove are pre-labelled first (agents/prelabel.py) and never reach Nano.
 """
 
 import json
 
 from pydantic import BaseModel
 
-from app.agents.checks import kind_problem
 from app.agents.context import Books
 from app.agents.models import ClassifyKind, WorkItem
+from app.agents.prelabel import backstop, item_id, prelabel, work_item  # noqa: F401  (item_id: re-exported)
 from app.agents.prompts import system_prompt
 from app.core.errors import AppError
 from app.guardrails import prompt_row
@@ -30,10 +31,6 @@ class ClassifiedItem(BaseModel):
 
 class ClassifyOut(BaseModel):
     items: list[ClassifiedItem]
-
-
-def item_id(bank_ids, gl_ids) -> str:
-    return "I-" + (tuple(bank_ids) + tuple(gl_ids))[0]
 
 
 def _similar_matched(books: Books, gl_ids) -> dict[str, list[dict]]:
@@ -55,31 +52,12 @@ def _check_facts(books: Books, gl_ids) -> dict[str, dict]:
             for gid in gl_ids if books.gl[gid].check_number}
 
 
-# GL-only kinds code can prove from the dataset and policy, tried in this order.
-# Duplicate first: an identical copy of a matched check also looks like an uncleared check.
-PROVABLE_GL_KINDS = ("duplicate_gl_entry", "outstanding_check", "deposit_in_transit")
-
-
-def prelabel(books: Books, gl_ids: list[str]) -> tuple[list[WorkItem], list[str]]:
-    """Label leftover GL lines whose kind the code checks prove; return (items, the rest)."""
-    items, rest = [], []
-    for gid in gl_ids:
-        for kind in PROVABLE_GL_KINDS:
-            work = _work(books, [], [gid], kind)
-            if kind_problem(work, books) is None:
-                items.append(work)
-                break
-        else:
-            rest.append(gid)
-    return items, rest
-
-
 async def classify(
     client: LLMClient, bank_ids: list[str], gl_ids: list[str], books: Books
 ) -> tuple[list[WorkItem], list[CallStats]]:
-    proven, gl_ids = prelabel(books, gl_ids)
+    proven, bank_ids, gl_ids = prelabel(books, bank_ids, gl_ids)
     items, stats = await _classify_rest(client, bank_ids, gl_ids, books)
-    return proven + items, stats
+    return proven + backstop(books, items, gl_ids), stats
 
 
 async def _classify_rest(
@@ -118,16 +96,11 @@ async def _classify_rest(
         left_gl -= g
         if p.kind == "unknown" and len(b) + len(g) > 1:
             # An unexplained group helps no one: each row gets its own resolve.
-            items += [_work(books, [i], [], "unknown") for i in p.bank_ids]
-            items += [_work(books, [], [i], "unknown") for i in p.gl_ids]
+            items += [work_item(books, [i], [], "unknown") for i in p.bank_ids]
+            items += [work_item(books, [], [i], "unknown") for i in p.gl_ids]
             continue
-        items.append(_work(books, p.bank_ids, p.gl_ids, p.kind))
-    items += [_work(books, [i], [], "unknown") for i in bank_ids if i in left_bank]
-    items += [_work(books, [], [i], "unknown") for i in gl_ids if i in left_gl]
+        items.append(work_item(books, p.bank_ids, p.gl_ids, p.kind))
+    items += [work_item(books, [i], [], "unknown") for i in bank_ids if i in left_bank]
+    items += [work_item(books, [], [i], "unknown") for i in gl_ids if i in left_gl]
     return items, all_stats
 
-
-def _work(books: Books, bank_ids, gl_ids, kind: str) -> WorkItem:
-    return WorkItem(id=item_id(bank_ids, gl_ids), kind=kind, source="classify",
-                    bank_ids=tuple(bank_ids), gl_ids=tuple(gl_ids),
-                    amount_delta=books.delta(bank_ids, gl_ids))

@@ -3,6 +3,7 @@
 Both stores return the same domain models, so routes never know which one they talk to.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from app.core.errors import AppError
 from app.recon.loader import DATA_DIR, load_dataset
 from app.recon.models import Balances, BankTxn, Dataset, GlEntry, ProposedEntry
 from app.recon.run_store import EFFECTIVE_ENTRY_COLS, EFFECTIVE_ENTRY_JOINS, MEMORY_RUNS, MemoryRunStore
+from app.schemas.runs import Item
 
 
 class ItemRef(BaseModel):
@@ -26,6 +28,15 @@ class ItemRef(BaseModel):
     gl_ids: tuple[str, ...]
     kind: str = "unknown"
     entry: ProposedEntry | None = None  # the item's journal entry, when it needs one
+
+
+def item_refs(items: Sequence[Item]) -> tuple[ItemRef, ...]:
+    """The statement's view of a run's items."""
+    return tuple(
+        ItemRef(id=i.id, status=i.status, bank_ids=tuple(i.bank_ids), gl_ids=tuple(i.gl_ids), kind=i.kind,
+                entry=ProposedEntry(debit_account=e.debit_account, credit_account=e.credit_account,
+                                    amount=e.amount, memo=e.memo) if (e := i.proposed_entry) else None)
+        for i in items)
 
 
 class RunItems(BaseModel):
@@ -88,11 +99,7 @@ class CsvStore:
             if run is None or run.dataset != dataset_id:
                 raise run_not_found(run_id)
         items = await self._runs.list_items(run_id)
-        return RunItems(run_id=run_id, items=tuple(
-            ItemRef(id=i.id, status=i.status, bank_ids=tuple(i.bank_ids), gl_ids=tuple(i.gl_ids), kind=i.kind,
-                    entry=ProposedEntry(debit_account=e.debit_account, credit_account=e.credit_account,
-                                        amount=e.amount, memo=e.memo) if (e := i.proposed_entry) else None)
-            for i in items))
+        return RunItems(run_id=run_id, items=item_refs(items))
 
 
 BALANCE_COLS = (

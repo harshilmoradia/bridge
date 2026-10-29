@@ -17,6 +17,7 @@ from app.agents.checks import ENTRY_KINDS, entry_problems
 from app.agents.context import CASH, Books
 from app.agents.models import DraftEntry, WorkItem
 from app.agents.prompts import system_prompt
+from app.agents.rules import candidate_rules, direction
 from app.core.errors import AppError
 from app.guardrails import prompt_row
 from app.llm import CallStats, LLMClient, Tier
@@ -106,10 +107,13 @@ def _tools(item: WorkItem, books: Books, result: ResolveResult) -> list[Tool]:
                              if args.type is None or a.type == args.type]}
 
     def find_rules(args: RuleArgs) -> dict:
-        text = args.description.lower()
-        hits = [r for r in books.rules if r.pattern.lower() in text]
+        # The words alone are too broad ("ZELLE" covers receipts and payments): kind and direction too.
+        text, way = args.description.lower(), direction(item.amount_delta)
+        hits = [r for r in books.rules
+                if r.pattern and r.pattern.lower() in text and r.kind == item.kind and r.direction == way]
         result.rule_ids = [r.id for r in hits]
-        return {"rules": [{"id": r.id, "kind": r.kind, "pattern": r.pattern,
+        # No pattern: it came from untrusted row text. Ids and accounts are all the model needs.
+        return {"rules": [{"id": r.id, "kind": r.kind,
                            "debit_account": r.debit_account, "credit_account": r.credit_account}
                           for r in hits]}
 
@@ -131,7 +135,8 @@ def _tools(item: WorkItem, books: Books, result: ResolveResult) -> list[Tool]:
         Tool("get_policy", "Get the resolution policy for an item kind.", KindArgs, get_policy),
         Tool("list_accounts", "List the chart of accounts, optionally of one type.",
              AccountsArgs, list_accounts),
-        Tool("find_rules", "Find learned rules whose pattern appears in a bank description.",
+        Tool("find_rules", "Find learned rules for this item's kind and direction whose pattern appears "
+             "in a description.",
              RuleArgs, find_rules),
         Tool("propose_entry", "Propose the draft journal entry. Code checks it and says whether "
              "it was accepted.", ProposeArgs, propose_entry),
@@ -150,6 +155,10 @@ async def resolve(
         view["optional_entry"] = entry_shape(item)
     else:
         view["required_entry"] = None
+    learned = candidate_rules(item, books)
+    if learned:  # a human approved this pattern before: code says which accounts that entry used
+        view["learned_rules"] = [{"id": r.id, "debit_account": r.debit_account,
+                                  "credit_account": r.credit_account, "amount": str(r.amount)} for r in learned]
     body = {"item": view, "feedback": list(feedback)}
     messages = [ChatMessage(role="system", content=system_prompt("resolve")),
                 ChatMessage(role="user", content=json.dumps(body))]

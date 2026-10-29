@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.runs import Evidence, ItemFlag, ItemKind, Resolution
 from app.schemas.common import ItemStatus
 
-Source = Literal["rules", "fuzzy", "classify"]
+Source = Literal["rules", "fuzzy", "classify", "code"]  # code: pre-labelled (agents/prelabel.py)
 
 # Kinds classify may assign. Rule kinds (exact, timing, ...) come only from the matcher.
 ClassifyKind = Literal[
@@ -46,6 +46,7 @@ class WorkItem(BaseModel):
     gl_ids: tuple[str, ...]
     amount_delta: Decimal
     flags: tuple[ItemFlag, ...] = ()
+    draft: DraftEntry | None = None  # code-built fix for a pre-labelled item; the fallback after resolve
 
 
 class AgentItem(BaseModel):
@@ -66,6 +67,7 @@ class AgentItem(BaseModel):
     entry: DraftEntry | None = None
     checks_passed: bool = True
     problems: list[str] = Field(default_factory=list)  # code-check failures, for the UI and evals
+    rule_id: int | None = None  # the learned rule decide applied (B-13)
     critic_skipped: int = 0  # critic calls that failed (timeout, bad JSON); code checks stood alone
 
 

@@ -57,7 +57,9 @@ def load_accounts(data_dir: Path = DATA_DIR) -> dict[str, Account]:
 
 @dataclass(frozen=True)
 class Rule:
-    """A learned rule (B-12 writes them). `pattern` is matched case-insensitively as a substring."""
+    """A learned rule (B-12 writes them, `agents/rules.agent_rule` loads them). `pattern` is the
+    screened description pattern; `find_rules` matches it as a substring, `matching_rule` exactly.
+    `direction` is out or in; `amount` is what a human approved (None: never auto-applied)."""
 
     id: int
     kind: str
@@ -65,6 +67,10 @@ class Rule:
     debit_account: str
     credit_account: str
     approved_by: str = ""
+    dataset: str = ""
+    direction: str = ""
+    amount: Decimal | None = None
+    counterparty: str | None = None
 
 
 @dataclass
