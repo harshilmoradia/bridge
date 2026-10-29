@@ -125,14 +125,20 @@ create table if not exists rules (
   action       jsonb not null,    -- e.g. {"debit": "6800", "credit": "1010"}
   source_item  uuid references items(id) on delete set null,
   created_by   text not null,
+  dataset      text not null,     -- the dataset the rule was learned on (or seeded for)
+  origin       text not null default 'learned' check (origin in ('learned', 'seeded')),
   active       boolean not null default true,
   created_at   timestamptz not null default now()
 );
 
+-- /demo/reset deletes a dataset's learned rules.
+create index if not exists rules_dataset_origin_idx on rules (dataset, origin);
+
 create table if not exists audit_log (
   id          bigserial primary key,
-  run_id      uuid references runs(id) on delete cascade,
-  entity_type text not null,      -- run | item | entry | rule | guardrail
+  -- Append-only: deleting a run (/demo/reset) keeps its history, run_id goes null.
+  run_id      uuid references runs(id) on delete set null,
+  entity_type text not null,      -- run | item | entry | rule | guardrail | dataset
   entity_id   text,
   action      text not null,
   actor       text not null,      -- agent:<name> | user:<name> | system
@@ -140,6 +146,9 @@ create table if not exists audit_log (
   detail      jsonb not null default '{}'::jsonb,
   created_at  timestamptz not null default now()
 );
+
+-- Indexes the FK, so deleting a run does not scan the whole log to null run_id.
+create index if not exists audit_log_run_id_idx on audit_log (run_id);
 
 alter table bank_transactions enable row level security;
 alter table gl_entries        enable row level security;

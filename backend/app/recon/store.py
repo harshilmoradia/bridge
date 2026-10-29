@@ -8,9 +8,11 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.config import Settings
 from app.core.errors import AppError
 from app.recon.loader import DATA_DIR, load_dataset
 from app.recon.models import Balances, BankTxn, Dataset, GlEntry, ProposedEntry
+from app.recon.run_store import EFFECTIVE_ENTRY_COLS, EFFECTIVE_ENTRY_JOINS, MEMORY_RUNS, MemoryRunStore
 
 
 class ItemRef(BaseModel):
@@ -50,12 +52,21 @@ class ReadStore(Protocol):
         ...
 
 
-class CsvStore:
-    """One dataset read from demo-data/. It has no runs, so every row is unmatched."""
+def read_store(settings: Settings) -> ReadStore:
+    """Postgres when DATABASE_URL is set, otherwise the configured demo-data/ dataset."""
+    if settings.database_url:
+        return DbStore(settings.database_url)
+    return CsvStore(settings.dataset, runs=MEMORY_RUNS)
 
-    def __init__(self, dataset_id: str, data_dir: Path = DATA_DIR) -> None:
+
+class CsvStore:
+    """One dataset read from demo-data/. Runs come from the memory run store when one is given;
+    without it every row is unmatched."""
+
+    def __init__(self, dataset_id: str, data_dir: Path = DATA_DIR, runs: MemoryRunStore | None = None) -> None:
         self._dataset_id = dataset_id
         self._data_dir = data_dir
+        self._runs = runs
 
     async def datasets(self) -> list[Dataset]:
         return [load_dataset(self._dataset_id, self._data_dir)]
@@ -64,9 +75,24 @@ class CsvStore:
         return load_dataset(dataset_id, self._data_dir) if dataset_id == self._dataset_id else None
 
     async def run_items(self, dataset_id: str, run_id: str | None) -> RunItems:
-        if run_id is not None:
-            raise run_not_found(run_id)
-        return NO_RUN
+        if self._runs is None:
+            if run_id is not None:
+                raise run_not_found(run_id)
+            return NO_RUN
+        if run_id is None:
+            run_id = await self._runs.latest_run_id(dataset_id)
+            if run_id is None:
+                return NO_RUN
+        else:
+            run = await self._runs.get_run(run_id)
+            if run is None or run.dataset != dataset_id:
+                raise run_not_found(run_id)
+        items = await self._runs.list_items(run_id)
+        return RunItems(run_id=run_id, items=tuple(
+            ItemRef(id=i.id, status=i.status, bank_ids=tuple(i.bank_ids), gl_ids=tuple(i.gl_ids), kind=i.kind,
+                    entry=ProposedEntry(debit_account=e.debit_account, credit_account=e.credit_account,
+                                        amount=e.amount, memo=e.memo) if (e := i.proposed_entry) else None)
+            for i in items))
 
 
 BALANCE_COLS = (
@@ -136,8 +162,22 @@ class DbStore:
                 )).fetchone()
                 if row is None:
                     raise run_not_found(run_id)
-            items = await (await conn.execute(
-                "select id::text, status, bank_ids, gl_ids from items where run_id::text = %s order by created_at",
-                (run_id,),
-            )).fetchall()
-            return RunItems(run_id=run_id, items=tuple(ItemRef(**r) for r in items))
+            rows = await (await conn.execute(RUN_ITEMS_SQL, (run_id,))).fetchall()
+            return RunItems(run_id=run_id, items=tuple(_item_ref(r) for r in rows))
+
+
+# Each item with its draft entry; the latest decision's entry_override (an edit at approval) wins.
+RUN_ITEMS_SQL = (
+    f"select i.id::text, i.status, i.bank_ids, i.gl_ids, i.kind, {EFFECTIVE_ENTRY_COLS} "
+    f"from items i {EFFECTIVE_ENTRY_JOINS}"
+    "where i.run_id::text = %s order by i.created_at, i.id"
+)
+
+
+def _item_ref(r: dict) -> ItemRef:
+    entry = None
+    if r["debit_account"] is not None:
+        entry = ProposedEntry(debit_account=r["debit_account"], credit_account=r["credit_account"],
+                              amount=r["amount"], memo=r["memo"])
+    return ItemRef(id=r["id"], status=r["status"], bank_ids=r["bank_ids"], gl_ids=r["gl_ids"],
+                   kind=r["kind"], entry=entry)

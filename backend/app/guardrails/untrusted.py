@@ -17,14 +17,14 @@ Every system prompt that carries untrusted text ends with `UNTRUSTED_SYSTEM_RULE
 """
 
 import re
-import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from app.guardrails.injection import InjectionResult, detect_injection
-from app.guardrails.pii import PERSON, mask_pii
+from app.guardrails.injection import InjectionResult
+from app.guardrails.pii import PERSON
+from app.guardrails.screen import screen_text
 
 _REF = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -58,9 +58,9 @@ def prepare_untrusted(text: str, *, ref: str) -> PreparedText:
     """Mask, flag and wrap one description for a prompt."""
     if not _REF.fullmatch(ref):
         raise ValueError(f"ref must be a plain row id, got {ref!r}")
-    masked = mask_pii(unicodedata.normalize("NFKC", text))
-    injection = detect_injection(masked)
-    escaped = _escape(masked)
+    screened = screen_text(text)
+    injection = screened.injection
+    escaped = _escape(screened.text)
     flag = ' flagged="injection"' if injection.flagged else ""
     return PreparedText(
         ref=ref,

@@ -6,7 +6,6 @@ decide). Step logs carry stats and counts only.
 """
 
 import asyncio
-import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -18,7 +17,7 @@ from app.agents.decide import decide
 from app.agents.fuzzy_match import fuzzy_match
 from app.agents.models import AgentItem, DraftEntry, StepLog, WorkItem
 from app.agents.review import evidence, review_item
-from app.guardrails import detect_injection, mask_pii
+from app.guardrails import screen_text
 from app.llm import CallStats, LLMClient
 from app.recon.matcher import load_match_policy, match
 from app.recon.matching_models import Match
@@ -35,11 +34,10 @@ def _flags(books: Books, bank_ids, gl_ids) -> tuple[str, ...]:
     texts = [books.bank[i].description for i in bank_ids] + [books.gl[i].description for i in gl_ids]
     flags = []
     for text in texts:
-        norm = unicodedata.normalize("NFKC", text)
-        masked = mask_pii(norm)
-        if masked != norm and "pii_redacted" not in flags:
+        screened = screen_text(text)
+        if screened.pii_masked and "pii_redacted" not in flags:
             flags.append("pii_redacted")
-        if detect_injection(masked).flagged and "injection_flagged" not in flags:
+        if screened.injection.flagged and "injection_flagged" not in flags:
             flags.append("injection_flagged")
     return tuple(flags)
 
