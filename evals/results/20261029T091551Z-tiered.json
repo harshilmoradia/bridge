@@ -1,0 +1,119 @@
+{
+  "pipeline": "tiered",
+  "dataset": "northbrook-2026-10",
+  "created_at": "2026-10-29T09:15:51Z",
+  "git_sha": "5618672-dirty",
+  "scores": {
+    "match_precision": {
+      "hit": 111,
+      "total": 111,
+      "value": 1.0
+    },
+    "match_recall": {
+      "hit": 111,
+      "total": 111,
+      "value": 1.0
+    },
+    "kind_accuracy": {
+      "hit": 114,
+      "total": 115,
+      "value": 0.9913
+    },
+    "kind_accuracy_by_kind": {
+      "bank_fee_missing_in_gl": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "check_number": {
+        "hit": 33,
+        "total": 33,
+        "value": 1.0
+      },
+      "deposit_in_transit": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "duplicate_gl_entry": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "exact": {
+        "hit": 67,
+        "total": 67,
+        "value": 1.0
+      },
+      "interest_missing_in_gl": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "nsf_pair": {
+        "hit": 1,
+        "total": 2,
+        "value": 0.5
+      },
+      "one_to_many": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "outstanding_check": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "rounding": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "timing": {
+        "hit": 4,
+        "total": 4,
+        "value": 1.0
+      },
+      "transposition": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "unidentified_receipt": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      }
+    },
+    "correct_escalations": {
+      "hit": 5,
+      "total": 5,
+      "value": 1.0
+    },
+    "escalated": 5,
+    "false_auto_resolutions": [],
+    "entry_correctness": {
+      "hit": 6,
+      "total": 6,
+      "value": 1.0
+    },
+    "unresolved": 0,
+    "uncovered_rows": 0,
+    "final_difference": "3814.50",
+    "difference_after_approvals": "0.00",
+    "expected_difference": "0.00",
+    "missed_truth_ids": []
+  },
+  "latency_ms": 45353,
+  "tokens_in": 45883,
+  "tokens_out": 6315,
+  "cost_usd": "0.017583",
+  "models": {
+    "nano": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    "super": "nvidia/nemotron-3-super-120b-a12b"
+  },
+  "calls": null,
+  "calls_by_tier": null,
+  "steps": null
+}

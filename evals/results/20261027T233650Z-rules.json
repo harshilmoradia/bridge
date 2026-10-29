@@ -1,0 +1,116 @@
+{
+  "pipeline": "rules",
+  "dataset": "northbrook-2026-10",
+  "created_at": "2026-10-27T23:36:50Z",
+  "git_sha": "15432f1-dirty",
+  "scores": {
+    "match_precision": {
+      "hit": 105,
+      "total": 105,
+      "value": 1.0
+    },
+    "match_recall": {
+      "hit": 105,
+      "total": 111,
+      "value": 0.9459
+    },
+    "kind_accuracy": {
+      "hit": 102,
+      "total": 115,
+      "value": 0.887
+    },
+    "kind_accuracy_by_kind": {
+      "bank_fee_missing_in_gl": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "check_number": {
+        "hit": 32,
+        "total": 33,
+        "value": 0.9697
+      },
+      "deposit_in_transit": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "duplicate_gl_entry": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "exact": {
+        "hit": 65,
+        "total": 67,
+        "value": 0.9701
+      },
+      "interest_missing_in_gl": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "nsf_pair": {
+        "hit": 0,
+        "total": 2,
+        "value": 0.0
+      },
+      "one_to_many": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "outstanding_check": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "rounding": {
+        "hit": 1,
+        "total": 1,
+        "value": 1.0
+      },
+      "timing": {
+        "hit": 3,
+        "total": 4,
+        "value": 0.75
+      },
+      "transposition": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      },
+      "unidentified_receipt": {
+        "hit": 0,
+        "total": 1,
+        "value": 0.0
+      }
+    },
+    "correct_escalations": {
+      "hit": 0,
+      "total": 5,
+      "value": 0.0
+    },
+    "escalated": 0,
+    "false_auto_resolutions": [],
+    "entry_correctness": {
+      "hit": 1,
+      "total": 6,
+      "value": 0.1667
+    },
+    "unresolved": 10,
+    "uncovered_rows": 0,
+    "final_difference": "864.10",
+    "difference_after_approvals": "864.10",
+    "expected_difference": "0.00",
+    "missed_truth_ids": [
+      "T001",
+      "T009",
+      "T075",
+      "T098",
+      "T099",
+      "T111",
+      "T112"
+    ]
+  }
+}

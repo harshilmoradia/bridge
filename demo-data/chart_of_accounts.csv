@@ -1,0 +1,33 @@
+account,name,type
+1010,Operating Cash,asset
+1020,Savings,asset
+1200,Accounts Receivable,asset
+1300,Prepaid Expenses,asset
+1350,Employee Advances,asset
+1500,Equipment,asset
+2000,Accounts Payable,liability
+2300,Customer Deposits,liability
+2400,Suspense - Unapplied Cash,liability
+4000,Sales Revenue,income
+4100,Interest Income,income
+4200,Other Income,income
+4900,Sales Returns & Refunds,income
+5000,Inventory Purchases,expense
+6000,Rent & Lease,expense
+6100,Utilities,expense
+6150,Phone & Internet,expense
+6200,Payroll Expense,expense
+6210,Payroll Taxes,expense
+6300,Professional Fees,expense
+6400,Marketing,expense
+6500,Office Supplies,expense
+6510,Software & Subscriptions,expense
+6600,Repairs & Maintenance,expense
+6700,Insurance,expense
+6750,Travel & Meals,expense
+6760,Training & Development,expense
+6800,Bank Fees,expense
+6850,Freight & Shipping,expense
+6900,Charitable Contributions,expense
+6950,Late Fees & Penalties,expense
+6990,Rounding & Miscellaneous,expense

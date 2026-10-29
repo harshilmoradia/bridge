@@ -1,0 +1,206 @@
+{
+  "pipelines": {
+    "rules": {
+      "created_at": "2026-10-27T23:36:50Z",
+      "dataset": "northbrook-2026-10",
+      "git_sha": "15432f1-dirty",
+      "match_precision": {
+        "hit": 105,
+        "total": 105,
+        "value": 1
+      },
+      "match_recall": {
+        "hit": 105,
+        "total": 111,
+        "value": 0.9459
+      },
+      "kind_accuracy": {
+        "hit": 102,
+        "total": 115,
+        "value": 0.887
+      },
+      "correct_escalations": {
+        "hit": 0,
+        "total": 5,
+        "value": 0
+      },
+      "entry_correctness": {
+        "hit": 1,
+        "total": 6,
+        "value": 0.1667
+      },
+      "false_auto_resolutions": 0,
+      "final_difference": "864.10",
+      "difference_after_approvals": "864.10",
+      "expected_difference": "0.00",
+      "latency_ms": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "calls": null,
+      "price_placeholder_tiers": null
+    },
+    "tiered": {
+      "created_at": "2026-10-29T09:15:51Z",
+      "dataset": "northbrook-2026-10",
+      "git_sha": "5618672-dirty",
+      "match_precision": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "match_recall": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "kind_accuracy": {
+        "hit": 114,
+        "total": 115,
+        "value": 0.9913
+      },
+      "correct_escalations": {
+        "hit": 5,
+        "total": 5,
+        "value": 1
+      },
+      "entry_correctness": {
+        "hit": 6,
+        "total": 6,
+        "value": 1
+      },
+      "false_auto_resolutions": 0,
+      "final_difference": "3814.50",
+      "difference_after_approvals": "0.00",
+      "expected_difference": "0.00",
+      "latency_ms": 45353,
+      "tokens_in": 45883,
+      "tokens_out": 6315,
+      "cost_usd": "0.017583",
+      "calls": null,
+      "price_placeholder_tiers": null
+    },
+    "super": {
+      "created_at": "2026-10-29T09:16:19Z",
+      "dataset": "northbrook-2026-10",
+      "git_sha": "5618672-dirty",
+      "match_precision": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "match_recall": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "kind_accuracy": {
+        "hit": 114,
+        "total": 115,
+        "value": 0.9913
+      },
+      "correct_escalations": {
+        "hit": 5,
+        "total": 5,
+        "value": 1
+      },
+      "entry_correctness": {
+        "hit": 6,
+        "total": 6,
+        "value": 1
+      },
+      "false_auto_resolutions": 0,
+      "final_difference": "3814.50",
+      "difference_after_approvals": "0.00",
+      "expected_difference": "0.00",
+      "latency_ms": 22223,
+      "tokens_in": 43536,
+      "tokens_out": 4927,
+      "cost_usd": "0.017495",
+      "calls": null,
+      "price_placeholder_tiers": null
+    },
+    "nano": {
+      "created_at": "2026-10-29T09:21:39Z",
+      "dataset": "northbrook-2026-10",
+      "git_sha": "5618672-dirty",
+      "match_precision": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "match_recall": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "kind_accuracy": {
+        "hit": 114,
+        "total": 115,
+        "value": 0.9913
+      },
+      "correct_escalations": {
+        "hit": 5,
+        "total": 5,
+        "value": 1
+      },
+      "entry_correctness": {
+        "hit": 6,
+        "total": 6,
+        "value": 1
+      },
+      "false_auto_resolutions": 0,
+      "final_difference": "3814.50",
+      "difference_after_approvals": "0.00",
+      "expected_difference": "0.00",
+      "latency_ms": 319689,
+      "tokens_in": 56587,
+      "tokens_out": 21516,
+      "cost_usd": "0.008559",
+      "calls": null,
+      "price_placeholder_tiers": null
+    },
+    "ultra": {
+      "created_at": "2026-10-29T09:22:20Z",
+      "dataset": "northbrook-2026-10",
+      "git_sha": "5618672-dirty",
+      "match_precision": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "match_recall": {
+        "hit": 111,
+        "total": 111,
+        "value": 1
+      },
+      "kind_accuracy": {
+        "hit": 114,
+        "total": 115,
+        "value": 0.9913
+      },
+      "correct_escalations": {
+        "hit": 5,
+        "total": 5,
+        "value": 1
+      },
+      "entry_correctness": {
+        "hit": 6,
+        "total": 6,
+        "value": 1
+      },
+      "false_auto_resolutions": 0,
+      "final_difference": "3814.50",
+      "difference_after_approvals": "0.00",
+      "expected_difference": "0.00",
+      "latency_ms": 36072,
+      "tokens_in": 80503,
+      "tokens_out": 13487,
+      "cost_usd": "0.120964",
+      "calls": null,
+      "price_placeholder_tiers": [
+        "ultra"
+      ]
+    }
+  }
+}

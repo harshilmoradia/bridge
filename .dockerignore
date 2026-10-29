@@ -1,0 +1,14 @@
+# Allowlist: the image only needs the backend app and the frontend sources.
+*
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/README.md
+!backend/app
+!demo-data
+!frontend
+frontend/node_modules
+frontend/dist
+frontend/.env*
+**/__pycache__
+**/*.py[cod]
+**/.DS_Store

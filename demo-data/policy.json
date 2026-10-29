@@ -1,0 +1,27 @@
+{
+  "date_window_days": 5,
+  "auto_writeoff_tolerance": "1.00",
+  "auto_writeoff_account": "6990",
+  "auto_resolve_kinds": [
+    "exact",
+    "timing",
+    "check_number",
+    "nsf_pair",
+    "one_to_many",
+    "rounding"
+  ],
+  "reconciling_item_kinds": [
+    "outstanding_check",
+    "deposit_in_transit"
+  ],
+  "always_escalate_kinds": [
+    "bank_fee_missing_in_gl",
+    "interest_missing_in_gl",
+    "duplicate_gl_entry",
+    "transposition",
+    "unidentified_receipt",
+    "unknown"
+  ],
+  "max_auto_amount": "10000.00",
+  "notes": "Escalated items carry a draft journal entry. Nothing posts without human approval, except rounding write-offs within tolerance."
+}
