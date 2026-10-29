@@ -96,8 +96,7 @@ create table if not exists items (
 );
 create index if not exists items_run_status_idx on items (run_id, status);
 
-create table if not exists proposed_entries (
-  id              uuid primary key default gen_random_uuid(),
+create table if not exists proposed_entries ( id              uuid primary key default gen_random_uuid(),
   item_id         uuid not null references items(id) on delete cascade,
   debit_account   text not null,
   credit_account  text not null,

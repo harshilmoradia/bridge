@@ -1,0 +1,64 @@
+# Render Blueprint: one Docker service per branch. main → bridge (prod), dev → bridge-dev.
+# Secrets are `sync: false`: Render asks for them once, when the Blueprint is first applied.
+services:
+  - type: web
+    name: bridge
+    runtime: docker
+    branch: main
+    region: oregon
+    plan: starter
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PUBLIC_DEMO_API
+        value: "true"
+      - key: DATASET
+        value: northbrook-2026-10
+      - key: LLM_PROVIDER
+        value: openai_compatible
+      - key: LLM_BASE_URL
+        value: https://api.tokenfactory.nebius.com/v1/
+      - key: LLM_TIMEOUT_NANO
+        value: "60"
+      - key: LLM_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: INNGEST_EVENT_KEY
+        sync: false
+      - key: INNGEST_SIGNING_KEY
+        sync: false
+
+  - type: web
+    name: bridge-dev
+    runtime: docker
+    branch: dev
+    region: oregon
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: staging
+      - key: INNGEST_ENV
+        value: dev
+      - key: PUBLIC_DEMO_API
+        value: "true"
+      - key: DATASET
+        value: northbrook-2026-10
+      - key: LLM_PROVIDER
+        value: openai_compatible
+      - key: LLM_BASE_URL
+        value: https://api.tokenfactory.nebius.com/v1/
+      - key: LLM_TIMEOUT_NANO
+        value: "60"
+      - key: LLM_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: INNGEST_EVENT_KEY
+        sync: false
+      - key: INNGEST_SIGNING_KEY
+        sync: false
