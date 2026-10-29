@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.auth import get_user_or_demo
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.recon.store import MemoryRunStore, RunStore
+from app.recon.store import DbStore, MemoryRunStore, RunStore
 from app.schemas.runs import (
     CreateRunRequest,
     CreateRunResponse,
@@ -32,7 +32,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def get_run_store(_settings: Settings = Depends(get_settings)) -> RunStore:
+def get_run_store(settings: Settings = Depends(get_settings)) -> RunStore:
+    if settings.database_url:
+        return DbStore(settings.database_url)
     return _rune_store
 
 

@@ -237,6 +237,90 @@ async def test_create_run_route_triggers_reconciliation_workflow(client, monkeyp
     assert event.data["dataset"] == "northbrook-2026-10"
 
 
+async def test_db_run_store_creates_and_fetches_runs(monkeypatch):
+    from app.recon.store import DbStore
+    from app.schemas.runs import CreateRunRequest
+
+    class FakeCursor:
+        def __init__(self, rows=None):
+            self._rows = rows or []
+
+        async def execute(self, *_args, **_kwargs):
+            return self
+
+        async def fetchone(self):
+            return self._rows[0] if self._rows else None
+
+        async def fetchall(self):
+            return self._rows
+
+    class FakeConn:
+        def __init__(self):
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, sql, params=None):
+            self.calls.append((sql, params))
+            text = sql.strip().lower()
+            if text.startswith("insert into runs"):
+                    return FakeCursor([
+                        {
+                            "id": "11111111-1111-4111-8111-111111111111",
+                            "dataset": "northbrook-2026-10",
+                            "period_start": "2026-10-01",
+                            "period_end": "2026-10-10",
+                            "status": "queued",
+                            "counts": {},
+                            "report": None,
+                            "error": None,
+                            "created_at": "2026-10-27T00:00:00Z",
+                            "updated_at": "2026-10-27T00:00:00Z",
+                        }
+                    ])
+            if "from runs where id" in text:
+                return FakeCursor([
+                    {
+                        "id": "11111111-1111-4111-8111-111111111111",
+                        "dataset": "northbrook-2026-10",
+                        "period_start": "2026-10-01",
+                        "period_end": "2026-10-10",
+                        "status": "queued",
+                        "created_at": "2026-10-27T00:00:00Z",
+                        "updated_at": "2026-10-27T00:00:00Z",
+                        "steps": [],
+                        "counts": {},
+                        "report": None,
+                        "error": None,
+                    }
+                ])
+            return FakeCursor()
+
+    store = DbStore("postgres://example")
+    fake_conn = FakeConn()
+
+    async def fake_connect():
+        return fake_conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    run = await store.create_run(CreateRunRequest(
+        dataset="northbrook-2026-10",
+        period_start="2026-10-01",
+        period_end="2026-10-10",
+    ))
+
+    assert run.dataset == "northbrook-2026-10"
+    assert run.status == "queued"
+    fetched = await store.get_run(run.id)
+    assert fetched is not None
+    assert fetched.id == run.id
+
+
 def test_reconciliation_request_rejects_reversed_period():
     import pytest
     from pydantic import ValidationError

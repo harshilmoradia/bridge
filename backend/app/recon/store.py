@@ -199,6 +199,100 @@ class DbStore:
         # prepare_threshold=None: the transaction pooler has no prepared statements.
         return await psycopg.AsyncConnection.connect(self._url, prepare_threshold=None, row_factory=dict_row)
 
+    async def create_run(self, request: CreateRunRequest) -> Run:
+        async with await self._connect() as conn:
+            row = await (await conn.execute(
+                """
+                insert into runs (dataset, period_start, period_end, status, counts, report, error, created_at, updated_at)
+                values (%s, %s, %s, 'queued', '{}'::jsonb, null, null, now(), now())
+                returning id::text, dataset, period_start, period_end, status, counts, report, error, created_at, updated_at
+                """,
+                (request.dataset, request.period_start, request.period_end),
+            )).fetchone()
+            if row is None:
+                raise AppError(code="run_create_failed", message="Unable to create the run", status_code=500)
+            return Run.model_validate({**row, "steps": []})
+
+    async def get_run(self, run_id: str) -> Run | None:
+        async with await self._connect() as conn:
+            row = await (await conn.execute(
+                """
+                select id::text, dataset, period_start, period_end, status, counts, report, error, created_at, updated_at
+                from runs where id::text = %s
+                """,
+                (run_id,),
+            )).fetchone()
+            if row is None:
+                return None
+            return Run.model_validate({**row, "steps": []})
+
+    async def list_items(self, run_id: str, status: str | None = None) -> list[Item]:
+        async with await self._connect() as conn:
+            if status is None:
+                rows = await (await conn.execute(
+                    """
+                    select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
+                           amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
+                    from items where run_id::text = %s order by created_at
+                    """,
+                    (run_id,),
+                )).fetchall()
+            else:
+                rows = await (await conn.execute(
+                    """
+                    select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
+                           amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
+                    from items where run_id::text = %s and status = %s order by created_at
+                    """,
+                    (run_id, status),
+                )).fetchall()
+            return [Item.model_validate({**row, "evidence": row.get("evidence") or [], "flags": row.get("flags") or []}) for row in rows]
+
+    async def decide_item(self, item_id: str, request: DecisionRequest) -> DecisionResponse:
+        item = (await self.list_items_by_id(item_id))[0]
+        item.status = "approved" if request.decision == "approve" else "rejected"
+        if item.proposed_entry is not None:
+            item.proposed_entry.status = item.status
+        if request.entry_override is not None and item.proposed_entry is not None:
+            item.proposed_entry.debit_account = request.entry_override.debit_account
+            item.proposed_entry.credit_account = request.entry_override.credit_account
+            item.proposed_entry.amount = request.entry_override.amount
+            item.proposed_entry.memo = request.entry_override.memo
+        run = await self.get_run(item.run_id)
+        if run is None:
+            raise AppError(code="run_not_found", message=f"Run {item.run_id} does not exist", status_code=404)
+        statement = _empty_statement(run)
+        if item.proposed_entry is not None and item.status == "approved":
+            statement.book.lines.append(
+                StatementLine(
+                    item_id=item.id,
+                    kind=item.kind,
+                    label=item.proposed_entry.memo,
+                    amount=item.amount_delta,
+                    status=item.status,
+                    applied=True,
+                    bank_ids=item.bank_ids,
+                    gl_ids=item.gl_ids,
+                )
+            )
+            statement.book.adjusted_balance = statement.book.adjusted_balance + Decimal(str(item.amount_delta))
+            statement.unreconciled_difference = statement.unreconciled_difference - Decimal(str(item.amount_delta))
+        return DecisionResponse(item=item, statement=statement)
+
+    async def list_items_by_id(self, item_id: str) -> list[Item]:
+        async with await self._connect() as conn:
+            rows = await (await conn.execute(
+                """
+                select id::text, run_id::text, kind, resolution, status, bank_ids, gl_ids,
+                       amount_delta, reasoning, evidence, flags, model, confidence, rule_id, created_at
+                from items where id::text = %s
+                """,
+                (item_id,),
+            )).fetchall()
+            if not rows:
+                raise AppError(code="item_not_found", message=f"Item {item_id} does not exist", status_code=404)
+            return [Item.model_validate({**row, "evidence": row.get("evidence") or [], "flags": row.get("flags") or []}) for row in rows]
+
     async def datasets(self) -> list[Dataset]:
         async with await self._connect() as conn:
             rows = await (await conn.execute("select dataset from balances order by dataset")).fetchall()
