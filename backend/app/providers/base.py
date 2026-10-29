@@ -1,9 +1,46 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Literal, Protocol
+
+from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.core.errors import LLMUnavailableError
 from app.schemas.chat import ChatMessage
+
+
+class ToolCall(BaseModel, frozen=True):
+    """One OpenAI-style function call. `arguments` is the raw JSON string; callers validate it."""
+
+    id: str
+    name: str
+    arguments: str
+
+    def wire(self) -> dict[str, Any]:
+        return {"id": self.id, "type": "function",
+                "function": {"name": self.name, "arguments": self.arguments}}
+
+
+class AgentMessage(ChatMessage):
+    """Internal message for tool turns. Not part of the public /chat contract."""
+
+    role: Literal["user", "assistant", "system", "tool"]  # type: ignore[assignment]
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
+
+    def wire(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"role": self.role, "content": self.content}
+        if self.tool_calls:
+            out["tool_calls"] = [call.wire() for call in self.tool_calls]
+        if self.tool_call_id:
+            out["tool_call_id"] = self.tool_call_id
+        return out
+
+
+def wire_message(message: ChatMessage) -> dict[str, Any]:
+    if isinstance(message, AgentMessage):
+        return message.wire()
+    return {"role": message.role, "content": message.content}
 
 
 @dataclass(frozen=True)
@@ -12,18 +49,20 @@ class Completion:
     model: str
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
 class LLMProvider(Protocol):
     async def generate(
         self,
-        messages: list[ChatMessage],
+        messages: Sequence[ChatMessage],
         model: str | None = None,
         *,
         json_mode: bool = False,
         timeout: float | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> Completion:
-        """Return the raw completion with token usage."""
+        """Return the raw completion with token usage. With `tools`, may return tool_calls."""
 
     async def complete(
         self,
