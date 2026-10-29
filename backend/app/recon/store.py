@@ -15,8 +15,9 @@ from pydantic import BaseModel, ConfigDict
 from app.core.errors import AppError
 from app.recon.loader import DATA_DIR, load_dataset
 from app.recon.models import Balances, BankTxn, Dataset, GlEntry, ProposedEntry
+from app.schemas.common import ApiError
 from app.schemas.reads import Statement, StatementLine, StatementSide
-from app.schemas.runs import CreateRunRequest, DecisionRequest, DecisionResponse, Item, Run, RunCounts
+from app.schemas.runs import CreateRunRequest, DecisionRequest, DecisionResponse, Item, Run, RunCounts, RunStep
 
 
 class ItemRef(BaseModel):
@@ -159,6 +160,103 @@ class MemoryRunStore:
     async def get_run(self, run_id: str) -> Run | None:
         return self._runs.get(run_id)
 
+    async def latest_run(self, dataset_id: str) -> Run | None:
+        runs = [
+            run for run in self._runs.values()
+            if run.dataset == dataset_id and run.status in {"running", "completed"}
+        ]
+        return max(runs, key=lambda run: run.created_at) if runs else None
+
+    async def start_run(self, run_id: str) -> None:
+        run = self._runs.get(run_id)
+        if run is None:
+            raise run_not_found(run_id)
+        run.status = "running"
+        run.updated_at = self._now()
+        run.steps = [RunStep(
+            id="load-and-match",
+            position=1,
+            agent="reconciliation",
+            label="Load and match transactions",
+            tier="code",
+            status="running",
+            started_at=run.updated_at,
+        )]
+
+    async def complete_run(self, run_id: str, result: dict[str, object]) -> list[str]:
+        run = self._runs.get(run_id)
+        if run is None:
+            raise run_not_found(run_id)
+        raw_items = result.get("items", [])
+        counts = result.get("counts", {})
+        if not isinstance(raw_items, list) or not isinstance(counts, dict):
+            raise ValueError("Invalid reconciliation result")
+
+        created_at = self._now()
+        persisted_ids: list[str] = []
+        for raw_item in raw_items:
+            item_id = _persisted_item_id(run_id, raw_item["id"])
+            persisted_ids.append(item_id)
+            proposed_entry_data = raw_item.get("proposed_entry")
+            proposed_entry = None
+            if isinstance(proposed_entry_data, dict):
+                proposed_entry = {
+                    **proposed_entry_data,
+                    "id": str(uuid5(NAMESPACE_URL, f"bridge:{item_id}:proposed-entry")),
+                }
+            item_data = {
+                **raw_item,
+                "id": item_id,
+                "run_id": run_id,
+                "created_at": created_at,
+                "evidence": raw_item.get("evidence") or [],
+                "flags": raw_item.get("flags") or [],
+                "proposed_entry": proposed_entry,
+            }
+            self._items[item_id] = Item.model_validate(item_data)
+
+        item_statuses = [item.status for item in await self.list_items(run_id)]
+        run.counts = RunCounts(
+            bank_transactions=int(counts.get("bank_transactions", 0)),
+            gl_entries=int(counts.get("gl_entries", 0)),
+            items=len(item_statuses),
+            matched=item_statuses.count("matched"),
+            auto_resolved=item_statuses.count("auto_resolved"),
+            reconciling_item=item_statuses.count("reconciling_item"),
+            needs_approval=item_statuses.count("needs_approval"),
+            approved=item_statuses.count("approved"),
+            rejected=item_statuses.count("rejected"),
+            unmatched=int(counts.get("unmatched_bank", 0)) + int(counts.get("unmatched_gl", 0)),
+        )
+        run.status = "completed"
+        run.updated_at = created_at
+        run.steps = [RunStep(
+            id="load-and-match",
+            position=1,
+            agent="reconciliation",
+            label="Load and match transactions",
+            tier="code",
+            status="completed",
+            started_at=run.steps[0].started_at if run.steps else created_at,
+            finished_at=created_at,
+            output_summary=f"Persisted {len(raw_items)} reconciliation items",
+        )]
+        return persisted_ids
+
+    async def fail_run(self, run_id: str, message: str) -> None:
+        run = self._runs.get(run_id)
+        if run is None:
+            return
+        now = self._now()
+        run.status = "failed"
+        run.updated_at = now
+        if run.steps:
+            run.steps[-1].status = "failed"
+            run.steps[-1].finished_at = now
+            run.steps[-1].error = ApiError(
+                code="reconciliation_failed", message=message[:500]
+            )
+
     async def list_items(self, run_id: str, status: str | None = None) -> list[Item]:
         items = [item for item in self._items.values() if item.run_id == run_id]
         if status is not None:
@@ -203,12 +301,21 @@ class MemoryRunStore:
         return DecisionResponse(item=item, statement=statement)
 
 
+MEMORY_RUN_STORE = MemoryRunStore()
+
+
 class CsvStore:
     """One dataset read from demo-data/. It has no runs, so every row is unmatched."""
 
-    def __init__(self, dataset_id: str, data_dir: Path = DATA_DIR) -> None:
+    def __init__(
+        self,
+        dataset_id: str,
+        data_dir: Path = DATA_DIR,
+        run_store: MemoryRunStore | None = None,
+    ) -> None:
         self._dataset_id = dataset_id
         self._data_dir = data_dir
+        self._run_store = run_store
 
     async def datasets(self) -> list[Dataset]:
         return [load_dataset(self._dataset_id, self._data_dir)]
@@ -217,9 +324,38 @@ class CsvStore:
         return load_dataset(dataset_id, self._data_dir) if dataset_id == self._dataset_id else None
 
     async def run_items(self, dataset_id: str, run_id: str | None) -> RunItems:
-        if run_id is not None:
-            raise run_not_found(run_id)
-        return NO_RUN
+        if self._run_store is None:
+            if run_id is not None:
+                raise run_not_found(run_id)
+            return NO_RUN
+        run = await self._run_store.latest_run(dataset_id) if run_id is None else await self._run_store.get_run(run_id)
+        if run is None:
+            if run_id is not None:
+                raise run_not_found(run_id)
+            return NO_RUN
+        if run.dataset != dataset_id:
+            raise run_not_found(run_id or run.id)
+        refs = tuple(
+            ItemRef(
+                id=item.id,
+                status=item.status,
+                bank_ids=tuple(item.bank_ids),
+                gl_ids=tuple(item.gl_ids),
+                kind=item.kind,
+                entry=(
+                    ProposedEntry(
+                        debit_account=item.proposed_entry.debit_account,
+                        credit_account=item.proposed_entry.credit_account,
+                        amount=item.proposed_entry.amount,
+                        memo=item.proposed_entry.memo,
+                    )
+                    if item.proposed_entry is not None
+                    else None
+                ),
+            )
+            for item in await self._run_store.list_items(run.id)
+        )
+        return RunItems(run_id=run.id, items=refs)
 
 
 BALANCE_COLS = (
@@ -286,8 +422,8 @@ class DbStore:
 
         status_counts = {
             "items": len(items),
-            "matched": int(counts.get("matches", 0)) + sum(item.get("status") == "matched" for item in items),
-            "auto_resolved": int(counts.get("auto_resolved", 0)),
+            "matched": sum(item.get("status") == "matched" for item in items),
+            "auto_resolved": sum(item.get("status") == "auto_resolved" for item in items),
             "reconciling_item": sum(item.get("status") == "reconciling_item" for item in items),
             "needs_approval": sum(item.get("status") == "needs_approval" for item in items),
             "unmatched": int(counts.get("unmatched_bank", 0)) + int(counts.get("unmatched_gl", 0)),

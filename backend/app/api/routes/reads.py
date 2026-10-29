@@ -9,7 +9,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.recon.models import Dataset
 from app.recon.statement import build_statement
-from app.recon.store import CsvStore, DbStore, ReadStore, RunItems
+from app.recon.store import CsvStore, DbStore, MEMORY_RUN_STORE, ReadStore, RunItems
 from app.schemas.reads import BankTransactionOut, DatasetOut, GlEntryOut, Statement
 
 router = APIRouter(tags=["reads"], dependencies=[Depends(get_user_or_demo)])
@@ -18,7 +18,7 @@ router = APIRouter(tags=["reads"], dependencies=[Depends(get_user_or_demo)])
 def get_read_store(settings: Settings = Depends(get_settings)) -> ReadStore:
     if settings.database_url:
         return DbStore(settings.database_url)
-    return CsvStore(settings.dataset)
+    return CsvStore(settings.dataset, run_store=MEMORY_RUN_STORE)
 
 
 async def _dataset(store: ReadStore, dataset_id: str) -> Dataset:

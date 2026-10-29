@@ -31,21 +31,32 @@ def test_smoke_run_executes_all_steps(monkeypatch):
 
 
 def _trigger_reconciliation(monkeypatch, period_start="2026-10-01", period_end="2026-10-10"):
+    import asyncio
+
     import inngest
     from inngest.experimental import mocked
 
     from app.core.config import get_settings
+    from app.recon.store import CsvStore, MemoryRunStore
+    from app.schemas.runs import CreateRunRequest
     from app.workflows.reconciliation import reconciliation_run
 
     monkeypatch.setenv("DATABASE_URL", "")
     monkeypatch.setenv("DATASET", "northbrook-2026-10")
     get_settings.cache_clear()
+    memory_store = MemoryRunStore()
+    monkeypatch.setattr("app.workflows.reconciliation.MEMORY_RUN_STORE", memory_store)
+    run = asyncio.run(memory_store.create_run(CreateRunRequest(
+        dataset="northbrook-2026-10",
+        period_start=period_start,
+        period_end=period_end,
+    )))
     result = mocked.trigger(
         reconciliation_run,
         inngest.Event(
             name="bridge/reconciliation.requested",
             data={
-                "run_id": "run-123",
+                "run_id": run.id,
                 "dataset": "northbrook-2026-10",
                 "period_start": period_start,
                 "period_end": period_end,
@@ -54,22 +65,34 @@ def _trigger_reconciliation(monkeypatch, period_start="2026-10-01", period_end="
         mocked.Inngest(app_id="test"),
     )
     get_settings.cache_clear()
-    return result
+    return result, memory_store
 
 
 def test_reconciliation_run_loads_dataset_and_runs_rule_matcher(monkeypatch):
-    from inngest.experimental import mocked
+    import asyncio
 
-    result = _trigger_reconciliation(monkeypatch)
+    from inngest.experimental import mocked
+    from app.recon.store import CsvStore
+
+    result, memory_store = _trigger_reconciliation(monkeypatch)
     assert result.status is mocked.Status.COMPLETED
     output = result.output
-    assert output["run_id"] == "run-123"
+    assert output["run_id"]
     assert output["counts"]["bank_transactions"] == 112
     assert output["counts"]["gl_entries"] == 114
 
     assert output["counts"]["matches"] > 0
     assert output["counts"]["candidate_groups"] > 0
     assert output["item_ids"]
+    run = asyncio.run(memory_store.get_run(output["run_id"]))
+    stored_items = asyncio.run(memory_store.list_items(output["run_id"]))
+    assert run is not None and run.status == "completed"
+    assert len(stored_items) >= output["counts"]["matches"]
+    assert sum(item.status == "matched" for item in stored_items) > 0
+    read_items = asyncio.run(CsvStore("northbrook-2026-10", run_store=memory_store).run_items(
+        "northbrook-2026-10", run.id,
+    ))
+    assert any(item.status == "matched" for item in read_items.items)
     assert "description" not in str(output).lower()
     assert "amount" not in str(output).lower()
 
@@ -77,17 +100,21 @@ def test_reconciliation_run_loads_dataset_and_runs_rule_matcher(monkeypatch):
 def test_reconciliation_run_limits_inputs_to_requested_period(monkeypatch):
     from inngest.experimental import mocked
 
-    result = _trigger_reconciliation(monkeypatch, "2026-10-01", "2026-10-02")
+    result, _memory_store = _trigger_reconciliation(monkeypatch, "2026-10-01", "2026-10-02")
     assert result.status is mocked.Status.COMPLETED
     assert result.output["counts"]["bank_transactions"] == 20
     assert result.output["counts"]["gl_entries"] == 22
 
 
 def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
+    import asyncio
+
     import inngest
     from inngest.experimental import mocked
 
     from app.core.config import get_settings
+    from app.recon.store import MemoryRunStore
+    from app.schemas.runs import CreateRunRequest
     from app.workflows.reconciliation import reconciliation_run
 
     class FakeClient:
@@ -97,13 +124,20 @@ def test_reconciliation_run_resolves_ambiguous_candidates(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "")
     monkeypatch.setenv("DATASET", "northbrook-2026-10")
     monkeypatch.setattr("app.workflows.reconciliation.get_llm_client", lambda _settings: FakeClient())
+    memory_store = MemoryRunStore()
+    monkeypatch.setattr("app.workflows.reconciliation.MEMORY_RUN_STORE", memory_store)
     get_settings.cache_clear()
+    run = asyncio.run(memory_store.create_run(CreateRunRequest(
+        dataset="northbrook-2026-10",
+        period_start="2026-10-01",
+        period_end="2026-10-10",
+    )))
     result = mocked.trigger(
         reconciliation_run,
         inngest.Event(
             name="bridge/reconciliation.requested",
             data={
-                "run_id": "run-456",
+                "run_id": run.id,
                 "dataset": "northbrook-2026-10",
                 "period_start": "2026-10-01",
                 "period_end": "2026-10-10",
@@ -145,6 +179,18 @@ def test_materialize_escalation_creates_balanced_policy_based_entry():
                 "reason": "Interest credit",
                 "policy_basis": "always_escalate_kinds",
             },
+            {
+                "group_index": 3,
+                "item_id": "match-3",
+                "kind": "rounding",
+                "resolution": "auto_match_with_writeoff",
+                "bank_ids": ["BANK003"],
+                "gl_ids": ["GL003"],
+                "delta": "0.01",
+                "reason": "Deterministic rounding match",
+                "policy_basis": "auto_writeoff_tolerance",
+                "model": "code",
+            },
         ],
         cash_account="1010",
     )
@@ -164,6 +210,15 @@ def test_materialize_escalation_creates_balanced_policy_based_entry():
         "amount": "12.50",
         "memo": "Interest credit",
         "status": "draft",
+    }
+    assert items[2]["status"] == "auto_resolved"
+    assert items[2]["proposed_entry"] == {
+        "id": "entry-match-3",
+        "debit_account": "1010",
+        "credit_account": "6990",
+        "amount": "0.01",
+        "memo": "Automatic rounding write-off",
+        "status": "posted",
     }
 
 

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.auth import get_user_or_demo
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.recon.store import DbStore, MemoryRunStore, RunStore
+from app.recon.store import DbStore, MEMORY_RUN_STORE, RunStore
 from app.schemas.runs import (
     CreateRunRequest,
     CreateRunResponse,
@@ -23,7 +23,7 @@ from app.workflows.client import inngest_client
 
 router = APIRouter(tags=["runs"], dependencies=[Depends(get_user_or_demo)])
 
-_rune_store = MemoryRunStore()
+_rune_store = MEMORY_RUN_STORE
 RUNS: dict[str, Run] = _rune_store._runs
 ITEMS: dict[str, Item] = _rune_store._items
 
