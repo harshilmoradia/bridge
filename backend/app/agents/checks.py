@@ -20,7 +20,15 @@ ENTRY_KINDS = frozenset({
 
 
 def _digits(amount: Decimal) -> str:
-    return "".join(sorted(str(abs(amount)).replace(".", "")))
+    return str(abs(amount)).replace(".", "")
+
+
+def swapped_neighbours(a: Decimal, b: Decimal) -> bool:
+    """True when b's digits are a's with exactly two adjacent digits swapped (925.00 / 952.00)."""
+    x, y = _digits(a), _digits(b)
+    diff = [i for i in range(len(x)) if len(x) == len(y) and x[i] != y[i]]
+    return len(diff) == 2 and diff[1] == diff[0] + 1 \
+        and (x[diff[0]], x[diff[1]]) == (y[diff[1]], y[diff[0]])
 
 
 def kind_problem(item: WorkItem, books: Books) -> str | None:
@@ -56,19 +64,28 @@ def kind_problem(item: WorkItem, books: Books) -> str | None:
         if shape != (0, 1):
             return "duplicate_gl_entry needs one GL line"
         g = gl[0]
-        twins = [
-            o for o in books.dataset.gl
-            if o.entry_id != g.entry_id and o.entry_id in books.matched_gl_ids
-            and (o.amount, o.description, o.check_number, o.counterparty)
-            == (g.amount, g.description, g.check_number, g.counterparty)
-        ]
-        return None if twins else "duplicate_gl_entry needs a matched GL line identical to it"
+
+        # A void (the same check with the opposite amount) means this line re-records the check.
+        voided = g.check_number is not None and any(
+            o.check_number == g.check_number and o.amount == -g.amount for o in books.dataset.gl)
+
+        def twin(o) -> bool:  # identical, or the same check number booked twice close together
+            same = (o.amount, o.description, o.check_number, o.counterparty) \
+                == (g.amount, g.description, g.check_number, g.counterparty)
+            same_check = g.check_number is not None and (o.amount, o.check_number) == (g.amount, g.check_number) \
+                and abs((o.date - g.date).days) <= books.policy.date_window_days
+            return (same or same_check) and not voided
+
+        twins = [o for o in books.dataset.gl
+                 if o.entry_id != g.entry_id and o.entry_id in books.matched_gl_ids and twin(o)]
+        return None if twins else \
+            "duplicate_gl_entry needs a matched GL line identical to it, or with its check number and amount"
     if k == "transposition":
         ok = shape == (1, 1) and bank[0].amount != gl[0].amount \
             and (bank[0].amount < 0) == (gl[0].amount < 0) \
-            and _digits(bank[0].amount) == _digits(gl[0].amount) \
-            and (bank[0].amount - gl[0].amount) % 9 == 0
-        return None if ok else "transposition needs one bank and one GL line with swapped digits"
+            and swapped_neighbours(bank[0].amount, gl[0].amount) \
+            and ((bank[0].amount - gl[0].amount) * 100) % 9 == 0  # in cents: 12.34 / 12.43 is 9 cents
+        return None if ok else "transposition needs one bank and one GL line with two adjacent digits swapped"
     return f"{k} is not a kind classify may assign"
 
 

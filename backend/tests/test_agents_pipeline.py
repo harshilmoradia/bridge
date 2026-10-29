@@ -86,6 +86,12 @@ class Oracle:
     def critic(self, _messages, _model):
         return '{"ok": true, "feedback": ""}'
 
+    def report(self, messages, _model):
+        f = user_json(messages)
+        return (f"## {f['company']}\n\nThe bank closed at {f['bank']['closing_balance']} and the book at "
+                f"{f['book']['closing_balance']}, a raw difference of {f['raw_difference']}.\n\n"
+                f"- {f['counts']['needs_approval']} items need approval.\n")
+
 
 def client_for(oracle) -> tuple[LLMClient, StubProvider]:
     provider = StubProvider(responder=oracle)
@@ -170,13 +176,13 @@ class Misclassifies(Oracle):
 async def test_misclassified_items_escalate_never_auto() -> None:
     client, _ = client_for(Misclassifies())
     items = by_first((await run_agents(DATASET, client)).items)
-    for first in ("BANK113", "BANK032"):
-        assert items[first].kind == "unknown"
-        assert items[first].status == "needs_approval"
-        assert items[first].problems
-    # Code pre-labels the GL kinds it can prove, so the model's wrong labels never reach them.
+    # A lone credit with a kind its rows refute is held in suspense by code, and still escalates.
+    assert items["BANK113"].kind == "unidentified_receipt"
+    assert items["BANK113"].status == "needs_approval"
+    # Code pre-labels the kinds it can prove, so the model's wrong labels never reach them.
     assert items["GL034"].kind == "outstanding_check"
     assert items["GL114"].kind == "deposit_in_transit"
+    assert items["BANK032"].kind == "bank_fee_missing_in_gl"
 
 
 class DropsAndInvents(Oracle):
@@ -196,8 +202,8 @@ async def test_classify_output_cannot_drop_or_invent_rows() -> None:
     assert sorted(bank) == sorted(b.txn_id for b in DATASET.bank)
     assert sorted(gl) == sorted(g.entry_id for g in DATASET.gl)
     unknown = {(i.bank_ids + i.gl_ids)[0] for i in items if i.kind == "unknown"}
-    assert {"BANK113", "BANK042", "BANK019", "GL023"} <= unknown
-    assert not {"GL034", "GL114", "GL003"} & unknown  # pre-labelled by code
+    assert not unknown  # code labels what Nano dropped when it can prove the kind
+    assert by_first(items)["BANK113"].kind == "unidentified_receipt"
 
 
 class WrongAmounts(Oracle):
@@ -214,12 +220,22 @@ async def test_resolve_retries_then_ultra_then_escalates_unknown() -> None:
     oracle = WrongAmounts()
     client, provider = client_for(oracle)
     items = by_first((await run_agents(DATASET, client)).items)
-    fee = items["BANK032"]
-    assert fee.kind == "unknown" and fee.status == "needs_approval" and fee.entry is None
-    assert not fee.checks_passed and fee.problems
     assert ("m-ultra", False) in provider.calls
+    # A code-labelled item keeps its kind and falls back to the code draft.
+    fee = items["BANK032"]
+    assert fee.kind == "bank_fee_missing_in_gl" and fee.checks_passed
+    assert (fee.entry.debit_account, fee.entry.credit_account, fee.entry.amount) == ("6800", "1010", D("25.00"))
     # Retries carry code-check feedback.
     assert any(any("amount" in f for f in fb) for fb in oracle.resolve_feedback)
+    # An item with no code draft (here, one built by hand) escalates as unknown with no entry.
+    from app.agents.classify import work_item
+    from app.agents.context import Books, load_accounts, load_policy
+    from app.agents.review import review_item
+    books = Books(DATASET, load_policy(), load_accounts())
+    bare = work_item(books, ["BANK113"], [], "unidentified_receipt")
+    done, _, _ = await review_item(client, bare, books)
+    assert done.kind == "unknown" and done.status == "needs_approval" and done.entry is None
+    assert not done.checks_passed and done.problems
 
 
 class CriticRejectsOnce(Oracle):
@@ -263,9 +279,11 @@ async def test_code_prelabels_provable_gl_kinds_and_classify_sees_only_the_rest(
     assert items["GL003"].kind == "duplicate_gl_entry"
     assert items["GL034"].kind == "outstanding_check" and items["GL034"].status == "reconciling_item"
     assert items["GL114"].kind == "deposit_in_transit" and items["GL114"].status == "reconciling_item"
+    assert items["BANK019"].kind == "transposition" and items["BANK019"].gl_ids == ["GL023"]
+    assert items["BANK042"].kind == "interest_missing_in_gl"
     sent = json.loads(oracle.prompts["classify"][0])
-    assert sorted(r["entry_id"] for r in sent["gl"]) == ["GL023"]
-    assert sorted(r["txn_id"] for r in sent["bank"]) == ["BANK019", "BANK032", "BANK042", "BANK113"]
+    assert sent["gl"] == []
+    assert [r["txn_id"] for r in sent["bank"]] == ["BANK113"]  # the one judgment call
 
 
 class HalfFuzzyLumpyClassify(Oracle):
@@ -277,14 +295,7 @@ class HalfFuzzyLumpyClassify(Oracle):
         return json.dumps({"pairs": [first]})
 
     def classify(self, messages, _model):
-        body = user_json(messages)
-        ids = [r["txn_id"] for r in body["bank"]] + [r["entry_id"] for r in body["gl"]]
-        lumped = {"BANK113", "BANK042"}
-        items = [{"bank_ids": b, "gl_ids": g, "kind": k} for b, g, k in CLASSIFY
-                 if not lumped & set(b + g)]
-        items.append({"bank_ids": ["BANK113", "BANK042"], "gl_ids": [], "kind": "unknown"})
-        assert set(ids) >= lumped
-        return json.dumps({"items": items})
+        return json.dumps({"items": [{"bank_ids": ["BANK113", "BANK042"], "gl_ids": [], "kind": "unknown"}]})
 
 
 async def test_forced_pairs_completed_and_unknown_split() -> None:
@@ -293,8 +304,14 @@ async def test_forced_pairs_completed_and_unknown_split() -> None:
     # One pick in each 2x2 group forces the other pair.
     assert items["BANK010"].status == "matched" and items["BANK010"].gl_ids == ["GL014"]
     assert items["BANK089"].status == "matched" and items["BANK089"].gl_ids == ["GL088"]
-    # A multi-row unknown is split so each row gets its own resolve.
-    assert items["BANK113"].bank_ids == ["BANK113"] and items["BANK042"].bank_ids == ["BANK042"]
+    # A multi-row unknown is split so each row gets its own resolve. (Code labels BANK042 before
+    # classify, so the split is checked on classify's own rows.)
+    from app.agents.classify import _classify_rest
+    from app.agents.context import Books, load_accounts, load_policy
+    books = Books(DATASET, load_policy(), load_accounts())
+    work, _ = await _classify_rest(client, ["BANK113", "BANK042"], [], books)
+    assert sorted(w.bank_ids for w in work) == [("BANK042",), ("BANK113",)]
+    assert all(w.kind == "unknown" for w in work)
 
 
 class NanoDown(Oracle):
@@ -343,3 +360,104 @@ async def test_confidence_is_display_only(confidence) -> None:
     items = by_first((await run_agents(DATASET, client)).items)
     assert items["BANK032"].status == "needs_approval"
     assert items["BANK032"].confidence == confidence
+
+
+# Live progress: `on_step(stage_id, log)` fires with log=None as a stage starts and with its
+# StepLog as it ends. Resolve and the critic review interleave per item (critic feedback goes
+# back into resolve), so those two start together and end together.
+STAGE_EVENTS = [
+    ("start", "match-rules"), ("end", "match-rules"),
+    ("start", "match-fuzzy"), ("end", "match-fuzzy"),
+    ("start", "classify"), ("end", "classify"),
+    ("start", "resolve"), ("start", "review"), ("end", "resolve"), ("end", "review"),
+    ("start", "decide"), ("end", "decide"),
+]
+
+
+async def test_on_step_reports_each_stage_as_it_starts_and_ends() -> None:
+    events: list[tuple[str, str]] = []
+    seen_in_classify: list[list[tuple[str, str]]] = []
+
+    class Spy(Oracle):
+        def classify(self, messages, model):
+            seen_in_classify.append(list(events))
+            return super().classify(messages, model)
+
+    async def on_step(stage_id, log):
+        events.append(("start" if log is None else "end", stage_id))
+        assert log is None or log.id == stage_id
+
+    client, _ = client_for(Spy())
+    run = await run_agents(DATASET, client, on_step=on_step)
+
+    assert events == STAGE_EVENTS
+    # While classify's model call is in flight, the stages before it have ended and it has started.
+    assert seen_in_classify[0] == STAGE_EVENTS[:5]
+    assert [s.id for s in run.steps] == ["match-rules", "match-fuzzy", "classify", "resolve", "review", "decide"]
+
+
+async def test_a_failing_on_step_callback_does_not_change_the_run() -> None:
+    calls = 0
+
+    async def broken(stage_id, log):
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("store down")
+
+    client, _ = client_for(Oracle())
+    run = await run_agents(DATASET, client, on_step=broken)
+
+    assert calls == len(STAGE_EVENTS)  # every event is still attempted
+    assert sum(i.status == "matched" for i in run.items) == 106
+    assert sum(i.status == "needs_approval" for i in run.items) == 5
+
+
+# A label the rows refute is turned into `unknown` before review (review.py), so no draft
+# it attracts can pass and nothing closes. Expected problems are kind_problem's own messages.
+@pytest.mark.parametrize("label,problem", [
+    ("interest_missing_in_gl", "interest_missing_in_gl needs one bank INTEREST credit with no GL line"),
+    ("deposit_in_transit", "deposit_in_transit needs one GL deposit near period end"),
+])
+async def test_a_refuted_classify_label_is_reviewed_as_unknown_and_escalates(label, problem) -> None:
+    from app.agents.classify import work_item
+    from app.agents.context import Books, load_accounts, load_policy
+    from app.agents.review import review_item
+    books = Books(DATASET, load_policy(), load_accounts())
+    wrong = work_item(books, ["BANK032"], [], label)  # BANK032 is a -25.00 FEE debit
+    client, _ = client_for(Oracle())
+    done, _, _ = await review_item(client, wrong, books)
+    assert (done.kind, done.status, done.resolution) == ("unknown", "needs_approval", "escalate")
+    assert not done.checks_passed and done.problems[0] == problem
+    assert done.entry is None
+
+
+class CriticAlwaysNo(Oracle):
+    def critic(self, _messages, _model):
+        return '{"ok": false, "feedback": "The explanation does not hold up."}'
+
+
+async def test_a_critic_veto_on_a_timing_item_escalates_instead_of_closing() -> None:
+    client, _ = client_for(CriticAlwaysNo())
+    items = by_first((await run_agents(DATASET, client)).items)
+    check = items["GL034"]  # code-labelled outstanding check: no draft to fall back on
+    assert check.status != "reconciling_item"
+    assert (check.kind, check.status, check.checks_passed) == ("unknown", "needs_approval", False)
+    assert "The explanation does not hold up." in check.problems
+    # problems is not persisted: the reasoning must carry the critic's reason.
+    assert check.reasoning.startswith(
+        "Escalated: the critic rejected the explanation: The explanation does not hold up.")
+
+
+async def test_a_code_draft_fallback_keeps_the_critic_rejection_visible() -> None:
+    client, _ = client_for(CriticAlwaysNo())
+    items = by_first((await run_agents(DATASET, client)).items)
+    fee = items["BANK032"]
+    assert (fee.kind, fee.status, fee.checks_passed) == ("bank_fee_missing_in_gl", "needs_approval", True)
+    assert (fee.entry.debit_account, fee.entry.credit_account, fee.entry.amount) == ("6800", "1010", D("25.00"))
+    assert fee.problems == ["model fallback: The explanation does not hold up."]
+    # Nano labelled the receipt; code only built its draft.
+    receipt = items["BANK113"]
+    assert receipt.kind == "unidentified_receipt" and receipt.entry is not None
+    assert "Labelled by code" not in receipt.reasoning
+    assert receipt.reasoning.startswith("Labelled by Nano; draft built by code")
+    assert fee.reasoning.startswith("Labelled by code")

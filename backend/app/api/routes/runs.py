@@ -1,6 +1,7 @@
 """Run API v1: start a reconciliation run, poll it, list its items, decide escalated items."""
 
 import logging
+from typing import Any
 
 import inngest
 from fastapi import APIRouter, Depends, Query
@@ -13,7 +14,10 @@ from app.recon.run_store import RunStore, get_run_store
 from app.recon.statement import build_statement
 from app.recon.store import read_store, run_not_found
 from app.schemas.common import ApiError, ItemStatus
-from app.schemas.runs import CreateRunRequest, CreateRunResponse, DecisionRequest, DecisionResponse, Item, Run
+from app.guardrails import mask_pii
+from app.schemas.runs import (
+    AuditEntry, CreateRunRequest, CreateRunResponse, DecisionRequest, DecisionResponse, Item, Run, Rule,
+)
 from app.workflows.client import inngest_client
 from app.workflows.item_decided import ITEM_DECIDED, ItemDecided, record_decided
 from app.workflows.reconcile import RUN_REQUESTED
@@ -73,6 +77,28 @@ async def list_run_items(
     return await store.list_items(run_id, status)
 
 
+# Free text a person typed into an audited action. Everything else in `detail` is ids, counts,
+# flags and reason names written by code (guard rows never hold row text).
+_FREE_TEXT_KEYS = frozenset({"note", "memo"})
+
+
+def _masked(value: Any, key: str | None = None) -> Any:
+    if isinstance(value, dict):
+        return {k: _masked(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_masked(v) for v in value]
+    if isinstance(value, str) and key in _FREE_TEXT_KEYS:
+        return mask_pii(value)
+    return value
+
+
+@router.get("/runs/{run_id}/audit", response_model=list[AuditEntry])
+async def list_run_audit(run_id: str, store: RunStore = Depends(run_store)) -> list[AuditEntry]:
+    """The run's audit trail, oldest first: guard flags and scan counts, decisions."""
+    await _run(store, run_id)
+    return [a.model_copy(update={"detail": _masked(a.detail)}) for a in await store.list_audit(run_id)]
+
+
 @router.post("/items/{item_id}/decision", response_model=DecisionResponse)
 async def decide_item(
     item_id: str,
@@ -106,3 +132,12 @@ async def decide_item(
         raise AppError(code="dataset_not_found", message=f"Dataset {run.dataset} does not exist", status_code=404)
     run_items = await reads.run_items(run.dataset, run.id)
     return DecisionResponse(item=item, statement=build_statement(dataset, run.id, run_items.items))
+
+
+@router.get("/rules", response_model=list[Rule])
+async def list_rules(
+    store: RunStore = Depends(run_store), settings: Settings = Depends(get_settings),
+) -> list[Rule]:
+    """The configured dataset's active rules, oldest first. A pattern holds screened words, a direction
+    and at most a business counterparty, never a person's name (`agents/rules.row_pattern`)."""
+    return await store.list_rules(settings.dataset)

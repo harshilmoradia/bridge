@@ -53,10 +53,12 @@ async def test_db_run_store_round_trip_and_statement_lines():
         fee = _fee(run.id)
         await runs.replace_items(run.id, [fee])
         await runs.replace_items(run.id, [fee])  # a retried step must not duplicate items
-        await runs.update_run(run.id, status="completed", counts=RunCounts(items=1, needs_approval=1))
+        await runs.update_run(run.id, status="running", counts=RunCounts(items=1, needs_approval=1),
+                              report="## Report")
+        await runs.update_run(run.id, status="completed")
 
         got = await runs.get_run(run.id)
-        assert got.status == "completed" and got.counts.needs_approval == 1
+        assert got.status == "completed" and got.counts.needs_approval == 1 and got.report == "## Report"
         assert [(s.id, s.status, s.output_summary) for s in got.steps] == [("load", "completed", "ok")]
         (item,) = await runs.list_items(run.id, "needs_approval")
         assert item.proposed_entry.amount == Decimal("25.00") and item.evidence[0].id == "BANK032"
@@ -114,7 +116,8 @@ def test_reconcile_run_writes_the_db_and_the_statement_reads_it(monkeypatch):
 
         got = asyncio.run(runs.get_run(run.id))
         assert got.status == "completed" and got.counts.items == 115 and got.counts.needs_approval == 5
-        assert len(got.steps) == 8 and all(s.status == "completed" for s in got.steps)
+        assert len(got.steps) == 9 and all(s.status == "completed" for s in got.steps)
+        assert got.report and "864.09" in got.report
 
         async def statement():
             reads = DbStore(DATABASE_URL)
@@ -203,3 +206,71 @@ def test_b12_approving_all_five_closes_the_statement_on_postgres(monkeypatch):
     finally:
         asyncio.run(_delete(run.id))
         get_settings.cache_clear()
+
+
+async def test_db_run_store_shows_live_stage_progress():
+    """reconcile-run's progress writes: one row at a time, a stage completed while the next runs."""
+    from app.workflows.reconcile import STAGES, _step
+
+    runs = DbRunStore(DATABASE_URL)
+    run = await runs.create_run(DATASET, date(2026, 10, 1), date(2026, 10, 31))
+    try:
+        await runs.save_steps(run.id, [_step(s.id, "pending") for s in STAGES])
+        started = datetime(2026, 10, 28, 12, tzinfo=timezone.utc)
+        await runs.save_steps(run.id, [_step("classify", "running", started_at=started)])
+        await runs.save_steps(run.id, [_step("classify", "completed", model="m-nano", started_at=started,
+                                             finished_at=started, latency_ms=1200, tokens_in=50,
+                                             tokens_out=9, output_summary="7 items classified")])
+        await runs.save_steps(run.id, [_step("resolve", "running", started_at=started)])
+
+        steps = {s.id: s for s in (await runs.get_run(run.id)).steps}
+        assert {k: s.status for k, s in steps.items()} == {
+            "load": "pending", "guard": "pending", "match-rules": "pending", "match-fuzzy": "pending",
+            "classify": "completed", "resolve": "running", "review": "pending", "decide": "pending",
+            "report": "pending"}
+        c = steps["classify"]
+        assert (c.tier, c.model, c.latency_ms, c.tokens_in, c.tokens_out) == ("nano", "m-nano", 1200, 50, 9)
+    finally:
+        await _delete(run.id)
+
+
+async def test_db_run_store_lists_a_runs_audit_rows_oldest_first():
+    runs = DbRunStore(DATABASE_URL)
+    run = await runs.create_run(DATASET, date(2026, 10, 1), date(2026, 10, 31))
+    other = await runs.create_run(DATASET, date(2026, 10, 1), date(2026, 10, 31))
+    try:
+        assert await runs.list_audit(run.id) == []
+        first = await runs.add_audit(run_id=run.id, entity_type="run", entity_id=run.id, action="guard_scan",
+                                     actor="agent:guard", detail={"masked_rows": 2, "flagged_rows": ["BANK077"]})
+        await runs.add_audit(run_id=other.id, entity_type="run", entity_id=other.id, action="guard_scan",
+                             actor="agent:guard", detail={})
+        second = await runs.add_audit(run_id=run.id, entity_type="item", entity_id="i1", action="approve",
+                                      actor="user:demo@bridge.local", detail={"note": None})
+        rows = await runs.list_audit(run.id)
+        assert [(r.id, r.action, r.run_id) for r in rows] == [(first, "guard_scan", run.id), (second, "approve", run.id)]
+        assert rows[0].detail == {"masked_rows": 2, "flagged_rows": ["BANK077"]}
+        assert rows[0].model is None and rows[0].created_at is not None
+    finally:
+        await _delete(run.id)
+        await _delete(other.id)
+
+
+async def test_db_run_store_lists_only_a_datasets_active_rules():
+    import psycopg
+
+    runs = DbRunStore(DATABASE_URL)
+    mine = await runs.add_rule(kind="bank_fee_missing_in_gl", pattern={"description_regex": "B13 TEST FEE"},
+                               action={}, source_item=None, created_by="system", dataset=DATASET)
+    other = await runs.add_rule(kind="bank_fee_missing_in_gl", pattern={"description_regex": "B13 TEST FEE"},
+                                action={}, source_item=None, created_by="system", dataset="b13-other")
+    off = await runs.add_rule(kind="bank_fee_missing_in_gl", pattern={"description_regex": "B13 TEST FEE"},
+                              action={}, source_item=None, created_by="system", dataset=DATASET)
+    try:
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, prepare_threshold=None) as conn:
+            await conn.execute("update rules set active = false where id = %s", (off,))
+        ids = [r.id for r in await runs.list_rules(DATASET)]
+        assert mine in ids and other not in ids and off not in ids
+        assert {mine, other, off} <= {r.id for r in await runs.list_rules()}
+    finally:
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, prepare_threshold=None) as conn:
+            await conn.execute("delete from rules where id = any(%s)", ([mine, other, off],))

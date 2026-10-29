@@ -2,12 +2,14 @@
 
 E-01 (evals) and B-10 (Inngest) both call into this. B-10 can run the same pieces as
 separate steps: `match`, `fuzzy_match`, `classify`, `review_item` (resolve + critic +
-decide). Step logs carry stats and counts only.
+decide). Step logs carry stats and counts only. An optional `on_step` hook hears each stage
+start and end, for live progress.
 """
 
 import asyncio
+import logging
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -22,6 +24,11 @@ from app.llm import CallStats, LLMClient
 from app.recon.matcher import load_match_policy, match
 from app.recon.matching_models import Match
 from app.recon.models import Dataset
+
+log = logging.getLogger(__name__)
+
+# Progress hook: `on_step(stage_id, None)` as a stage starts, `on_step(stage_id, log)` as it ends.
+OnStep = Callable[[str, StepLog | None], Awaitable[None]]
 
 
 @dataclass
@@ -89,15 +96,37 @@ async def run_agents(
     rules: Sequence[Rule] = (),
     use_critic: bool = True,
     concurrency: int = 4,  # 8 parallel Super calls stalled to the timeout in the live run
+    on_step: OnStep | None = None,
 ) -> AgentRun:
     policy = policy or load_policy()
     accounts = load_accounts()
     base = Books(dataset, policy, accounts, tuple(rules))
+    steps: list[StepLog] = []
 
+    async def notify(stage_id: str, step: StepLog | None) -> None:
+        # Progress is for display: a failing hook is logged and the run carries on. The caller
+        # still gets every StepLog in the result.
+        if on_step is None:
+            return
+        try:
+            await on_step(stage_id, step)
+        except Exception as e:
+            log.warning("on_step failed for %s: %s", stage_id, type(e).__name__)
+
+    async def end(step: StepLog) -> None:
+        steps.append(step)
+        await notify(step.id, step)
+
+    await notify("match-rules", None)
     result = match(dataset.bank, dataset.gl, load_match_policy())
+    await end(StepLog(id="match-rules", tier="code",
+                      summary=f"{len(result.matches)} matches, {len(result.candidates)} candidate groups"))
+
+    await notify("match-fuzzy", None)
     fuzzy = await asyncio.gather(*(fuzzy_match(client, g, base) for g in result.candidates))
     picked = [m for ms, _ in fuzzy for m in ms]
     fuzzy_stats = [s for _, ss in fuzzy for s in ss]
+    await end(_log("match-fuzzy", "nano", fuzzy_stats, f"{len(picked)} pairs picked"))
 
     all_matches = list(result.matches) + picked
     matched_gl = frozenset(g for m in all_matches for g in m.gl_ids)
@@ -106,8 +135,12 @@ async def run_agents(
     left_bank = [b.txn_id for b in dataset.bank if b.txn_id not in used]
     left_gl = [g.entry_id for g in dataset.gl if g.entry_id not in used]
 
+    await notify("classify", None)
     work, classify_stats = await classify(client, left_bank, left_gl, books)
     work = [w.model_copy(update={"flags": _flags(books, w.bank_ids, w.gl_ids)}) for w in work]
+    by_code = sum(w.source == "code" for w in work)
+    await end(_log("classify", "nano", classify_stats,
+                   f"{len(work)} items classified: {by_code} by code, {len(work) - by_code} by Nano"))
 
     gate = asyncio.Semaphore(concurrency)
 
@@ -115,29 +148,27 @@ async def run_agents(
         async with gate:
             return await review_item(client, w, books, use_critic=use_critic)
 
+    # Resolve and the critic interleave per item (critic feedback goes back into resolve), so the
+    # two stages start together and end together.
+    await notify("resolve", None)
+    await notify("review", None)
     reviewed = await asyncio.gather(*(one(w) for w in work))
-
-    items = [_match_item(m, books, "rules") for m in result.matches]
-    items += [_match_item(m, books, "fuzzy") for m in picked]
-    items += [item for item, _, _ in reviewed]
     resolve_stats = [s for _, rs, _ in reviewed for s in rs]
     critic_stats = [s for _, _, cs in reviewed for s in cs]
     ultra = sum(s.tier == "ultra" for s in resolve_stats)
-    status = Counter(i.status for i in items)
+    await end(_log("resolve", "super", resolve_stats,
+                   f"{len(work)} items, {len(resolve_stats)} attempts, {ultra} on Ultra"))
+    await end(_log("review", "super", critic_stats,
+                   f"{sum(not i.checks_passed for i, _, _ in reviewed)} failed checks, "
+                   f"{sum(i.critic_skipped for i, _, _ in reviewed)} critic calls failed"))
 
-    steps = [
-        StepLog(id="match-rules", tier="code",
-                summary=f"{len(result.matches)} matches, {len(result.candidates)} candidate groups"),
-        _log("match-fuzzy", "nano", fuzzy_stats, f"{len(picked)} pairs picked"),
-        _log("classify", "nano", classify_stats, f"{len(work)} items classified"),
-        _log("resolve", "super", resolve_stats,
-             f"{len(work)} items, {len(resolve_stats)} attempts, {ultra} on Ultra"),
-        _log("review", "super", critic_stats,
-             f"{sum(not i.checks_passed for i, _, _ in reviewed)} failed checks, "
-             f"{sum(i.critic_skipped for i, _, _ in reviewed)} critic calls failed"),
-        StepLog(id="decide", tier="code", summary=", ".join(
-            f"{n} {s}" for s, n in sorted(status.items()))),
-    ]
+    await notify("decide", None)
+    items = [_match_item(m, books, "rules") for m in result.matches]
+    items += [_match_item(m, books, "fuzzy") for m in picked]
+    items += [item for item, _, _ in reviewed]
+    status = Counter(i.status for i in items)
+    await end(StepLog(id="decide", tier="code", summary=", ".join(
+        f"{n} {s}" for s, n in sorted(status.items()))))
     return AgentRun(items=items, steps=steps)
 
 

@@ -10,12 +10,14 @@ import re
 
 from pydantic import BaseModel
 
-from app.agents.checks import entry_problems, kind_problem
+from app.agents.checks import ENTRY_KINDS, entry_problems, kind_problem
 from app.agents.context import Books
 from app.agents.decide import decide
-from app.agents.models import AgentItem, WorkItem
+from app.agents.models import AgentItem, DraftEntry, WorkItem
+from app.agents.prelabel import code_reasoning
 from app.agents.prompts import system_prompt
 from app.agents.resolve import ResolveResult, item_view, resolve
+from app.agents.rules import approver, matching_rule
 from app.core.errors import AppError
 from app.llm import CallStats, LLMClient, Tier
 from app.schemas.chat import ChatMessage
@@ -76,20 +78,27 @@ def evidence(item: WorkItem, books: Books, rule_ids=()) -> list[Evidence]:
 
 
 def _finish(item: WorkItem, books: Books, *, passed: bool, problems: list[str],
-            res: ResolveResult | None, reasoning: str | None) -> AgentItem:
-    resolution, status = decide(item, checks_passed=passed, policy=books.policy)
+            res: ResolveResult | None, reasoning: str | None, entry: DraftEntry | None = None) -> AgentItem:
+    """`entry` is the checked fix kept on the item (the model's, or the code draft after a fallback)."""
+    rule = matching_rule(item, entry, books) if passed else None
+    resolution, status = decide(item, checks_passed=passed, policy=books.policy, rule=rule)
+    if status != "auto_resolved" or resolution != "apply_rule":
+        rule = None
     flags = list(item.flags)
-    if res and res.rule_ids:
+    rule_ids = list(res.rule_ids) if res else []
+    if rule is not None:
         flags.append("rule_applied")
+        rule_ids = [rule.id, *(r for r in rule_ids if r != rule.id)]
+        reasoning = f"Applied rule #{rule.id} (approved by {approver(rule)}). {reasoning or ''}".strip()
     return AgentItem(
         id=item.id, kind=item.kind, resolution=resolution, status=status,
         bank_ids=list(item.bank_ids), gl_ids=list(item.gl_ids),
         amount_delta=item.amount_delta, reasoning=reasoning,
-        evidence=evidence(item, books, res.rule_ids if res else ()), flags=flags,
+        evidence=evidence(item, books, rule_ids), flags=flags,
         model=res.stats.model if res and res.stats else None,
         confidence=res.confidence if res else None,
-        entry=res.entry if res and passed else None,
-        checks_passed=passed, problems=problems,
+        entry=entry if passed else None,
+        checks_passed=passed, problems=problems, rule_id=rule.id if rule else None,
     )
 
 
@@ -112,11 +121,13 @@ async def review_item(
     res: ResolveResult | None = None
     problems: list[str] = []
     skipped = 0
+    vetoed = False  # the last attempt passed the code checks and the critic said no
     for tier in LADDER:
         res = await resolve(client, tier, item, books, feedback)
         if res.stats:
             resolve_stats.append(res.stats)
         problems = result_problems(item, res, books)
+        vetoed = False
         if not problems and use_critic:
             verdict, stats = await critic(client, item, res, books)
             if stats:
@@ -124,17 +135,42 @@ async def review_item(
             else:
                 skipped += 1
             if not verdict.ok:
+                vetoed = True
                 problems = [verdict.feedback.strip()[:300] or "the critic rejected the explanation"]
         if not problems:
             done = _finish(item, books, passed=not base_problems, problems=base_problems,
-                           res=res, reasoning=res.explanation)
+                           res=res, reasoning=res.explanation, entry=res.entry)
             done.critic_skipped = skipped
             return done, resolve_stats, critic_stats
         feedback = problems
 
+    # A critic veto on a kind with no entry (outstanding check, deposit in transit) is a doubt about
+    # the label itself, and closing it as a reconciling item would hide that doubt: escalate.
+    trusted_label = item.source == "code" or item.draft is not None
+    if trusted_label and not (vetoed and item.kind not in ENTRY_KINDS):
+        # Code proved the kind or built the draft (agents/prelabel.py): the model's failure costs
+        # the explanation, not the label or the fix. The draft passed the same code checks. The
+        # model's last explanation may describe an entry that failed, so code explains instead.
+        # The rejected attempt stays visible in problems; decide reads only checks_passed.
+        fallback = [f"model fallback: {p}" for p in problems]
+        reasoning = code_reasoning(item, books)
+        if fallback:
+            reasoning += f" The model's draft was not used: {problems[0]}"
+        done = _finish(item, books, passed=True, problems=fallback, res=None, reasoning=reasoning,
+                       entry=item.draft)
+        done.critic_skipped = skipped
+        return done, resolve_stats, critic_stats
+
     escalated = item.model_copy(update={"kind": "unknown"})
-    reasoning = (res.explanation if res and res.explanation else None) \
-        or "Escalated: no draft fix passed the code checks."
+    if vetoed:
+        # problems is not persisted, so the critic's reason goes in the reasoning, ahead of the
+        # explanation it rejected.
+        reasoning = f"Escalated: the critic rejected the explanation: {problems[0]}"
+        if res and res.explanation:
+            reasoning += f" Model's explanation: {res.explanation}"
+    else:
+        reasoning = (res.explanation if res and res.explanation else None) \
+            or "Escalated: no draft fix passed the code checks."
     res_no_entry = res
     if res_no_entry is not None:
         res_no_entry.entry = None

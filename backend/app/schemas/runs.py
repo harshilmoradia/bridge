@@ -21,7 +21,7 @@ ItemKind = Literal[
     "bank_fee_missing_in_gl", "interest_missing_in_gl", "duplicate_gl_entry",
     "transposition", "unidentified_receipt", "unknown",
 ]
-Resolution = Literal["auto_match", "auto_match_with_writeoff", "reconciling_item", "escalate"]
+Resolution = Literal["auto_match", "auto_match_with_writeoff", "apply_rule", "reconciling_item", "escalate"]
 ItemFlag = Literal["pii_redacted", "injection_flagged", "rule_applied"]
 EvidenceType = Literal["bank_transaction", "gl_entry", "policy", "rule"]
 EntryStatus = Literal["draft", "approved", "rejected", "posted"]
@@ -157,4 +157,23 @@ class Rule(BaseModel):
     source_item: str | None = None
     created_by: str
     active: bool
+    created_at: datetime
+
+
+class AuditEntry(BaseModel):
+    """One `audit_log` row of a run (GET /runs/{id}/audit). Append-only; oldest first.
+
+    entity_type is run | item | entry | rule | guardrail | dataset; actor is agent:<name> |
+    user:<email> | system. `detail` holds ids, counts and reason names; free text a reviewer
+    typed (a decision's note, an override memo) is PII-masked before it leaves the API.
+    """
+
+    id: int
+    run_id: str | None = None
+    entity_type: str = Field(examples=["guardrail"])
+    entity_id: str | None = None
+    action: str = Field(examples=["injection_flagged"])
+    actor: str = Field(examples=["agent:guard"])
+    model: str | None = None
+    detail: dict[str, Any] = Field(default_factory=dict, examples=[{"reasons": ["instruction_override"]}])
     created_at: datetime

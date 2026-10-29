@@ -7,7 +7,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.schemas.reads import BankTransactionOut, DatasetOut, GlEntryOut, Statement
-from app.schemas.runs import DecisionResponse, DemoResetResponse, Item, Rule, Run
+from app.schemas.runs import AuditEntry, DecisionResponse, DemoResetResponse, Item, Rule, Run
 
 FIXTURES = Path(__file__).resolve().parents[2] / "docs" / "fixtures"
 
@@ -22,6 +22,7 @@ CONTRACT = {
     "decision-response.json": DecisionResponse,
     "rules.json": list[Rule],
     "demo-reset.json": DemoResetResponse,
+    "run-audit.json": list[AuditEntry],
 }
 
 

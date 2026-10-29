@@ -75,12 +75,22 @@ class LLMClient:
         *,
         json_response_format: bool = True,
         max_repairs: int = 2,
+        force_tier: Tier | None = None,
     ) -> None:
         self.provider = provider
         self.models = models
         self.timeouts = timeouts
         self.json_response_format = json_response_format
         self.max_repairs = max_repairs
+        # Evals only (E-03): send every call to one tier's model. Runtime clients leave it None.
+        self.force_tier = force_tier
+
+    def forced(self, tier: Tier | None, provider: LLMProvider | None = None) -> "LLMClient":
+        """A copy whose every call goes to `tier` (None keeps the tier map), optionally over another
+        provider. For the tier comparison eval; the original client is unchanged."""
+        return LLMClient(provider or self.provider, self.models, self.timeouts,
+                         json_response_format=self.json_response_format, max_repairs=self.max_repairs,
+                         force_tier=tier)
 
     async def complete_text(
         self, tier: Tier, messages: list[ChatMessage]
@@ -162,6 +172,7 @@ class LLMClient:
         json_mode: bool,
         tools: list[dict[str, Any]] | None = None,
     ) -> tuple[Completion, CallStats]:
+        tier = self.force_tier or tier
         model, timeout = self.models[tier], self.timeouts[tier]
         start = time.perf_counter()
         for attempt in (1, 2):

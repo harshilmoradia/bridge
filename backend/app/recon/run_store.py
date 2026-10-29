@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.schemas.common import ApiError
-from app.schemas.runs import EntryOverride, Item, ProposedEntry, Rule, Run, RunCounts, RunStatus, RunStep
+from app.schemas.runs import AuditEntry, EntryOverride, Item, ProposedEntry, Rule, Run, RunCounts, RunStatus, RunStep
 
 Verdict = Literal["approve", "reject"]
 RuleOrigin = Literal["learned", "seeded"]
@@ -53,8 +53,11 @@ class RunStore(Protocol):
     async def latest_run_id(self, dataset: str) -> str | None: ...
 
     async def update_run(
-        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None
-    ) -> None: ...
+        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None,
+        report: str | None = None,
+    ) -> None:
+        """Set the status and error; counts and report change only when given."""
+        ...
 
     async def save_steps(self, run_id: str, steps: Sequence[RunStep]) -> None:
         """Insert or replace steps by id."""
@@ -86,12 +89,18 @@ class RunStore(Protocol):
         detail: dict[str, Any],
     ) -> int: ...
 
+    async def list_audit(self, run_id: str) -> list[AuditEntry]:
+        """The run's audit rows, oldest first (empty for a run with none)."""
+        ...
+
     async def add_rule(
         self, *, kind: str, pattern: dict[str, Any], action: dict[str, Any], source_item: str | None,
         created_by: str, dataset: str, origin: RuleOrigin = "learned",
     ) -> int: ...
 
-    async def list_rules(self) -> list[Rule]: ...
+    async def list_rules(self, dataset: str | None = None) -> list[Rule]:
+        """All rules by id; with `dataset`, only that dataset's active rules (what a run may apply)."""
+        ...
 
     async def reset(self, dataset: str, *, actor: str) -> tuple[int, int]:
         """Delete the dataset's runs (with steps, items, entries and decisions) and its learned rules.
@@ -138,12 +147,15 @@ class MemoryRunStore:
         return max(live, key=lambda r: r.created_at).id if live else None
 
     async def update_run(
-        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None
+        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None,
+        report: str | None = None,
     ) -> None:
         run = self._runs[run_id]
         run.status, run.error, run.updated_at = status, error, _now()
         if counts is not None:
             run.counts = counts
+        if report is not None:
+            run.report = report
 
     async def save_steps(self, run_id: str, steps: Sequence[RunStep]) -> None:
         run = self._runs[run_id]
@@ -195,8 +207,12 @@ class MemoryRunStore:
         detail: dict[str, Any],
     ) -> int:
         self.audit.append({"id": len(self.audit) + 1, "run_id": run_id, "entity_type": entity_type,
-                           "entity_id": entity_id, "action": action, "actor": actor, "detail": detail})
+                           "entity_id": entity_id, "action": action, "actor": actor, "model": None,
+                           "detail": detail, "created_at": _now()})
         return len(self.audit)
+
+    async def list_audit(self, run_id: str) -> list[AuditEntry]:
+        return [AuditEntry.model_validate(a).model_copy(deep=True) for a in self.audit if a["run_id"] == run_id]
 
     async def add_rule(
         self, *, kind: str, pattern: dict[str, Any], action: dict[str, Any], source_item: str | None,
@@ -208,8 +224,9 @@ class MemoryRunStore:
                                 created_by=created_by, active=True, created_at=_now()))
         return rule_id
 
-    async def list_rules(self) -> list[Rule]:
-        return [r.model_copy(deep=True) for r in self._rules]
+    async def list_rules(self, dataset: str | None = None) -> list[Rule]:
+        return [r.model_copy(deep=True) for r in self._rules
+                if dataset is None or (self._rule_scope[r.id][0] == dataset and r.active)]
 
     async def reset(self, dataset: str, *, actor: str) -> tuple[int, int]:
         run_ids = {r.id for r in self._runs.values() if r.dataset == dataset}
@@ -308,16 +325,17 @@ class DbRunStore:
             return row["id"] if row else None
 
     async def update_run(
-        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None
+        self, run_id: str, *, status: RunStatus, counts: RunCounts | None = None, error: ApiError | None = None,
+        report: str | None = None,
     ) -> None:
         from psycopg.types.json import Jsonb
 
         async with await self._connect() as conn:
             await conn.execute(
-                "update runs set status = %s, counts = coalesce(%s, counts), error = %s, updated_at = now() "
-                "where id::text = %s",
+                "update runs set status = %s, counts = coalesce(%s, counts), error = %s, "
+                "report = coalesce(%s, report), updated_at = now() where id::text = %s",
                 (status, Jsonb(counts.model_dump()) if counts else None,
-                 Jsonb(error.model_dump()) if error else None, run_id),
+                 Jsonb(error.model_dump()) if error else None, report, run_id),
             )
 
     async def save_steps(self, run_id: str, steps: Sequence[RunStep]) -> None:
@@ -451,6 +469,14 @@ class DbRunStore:
             )).fetchone()
             return row["id"]
 
+    async def list_audit(self, run_id: str) -> list[AuditEntry]:
+        async with await self._connect() as conn:
+            rows = await (await conn.execute(
+                "select id, run_id::text, entity_type, entity_id, action, actor, model, detail, created_at "
+                "from audit_log where run_id::text = %s order by id", (run_id,),
+            )).fetchall()
+            return [AuditEntry(**r) for r in rows]
+
     async def add_rule(
         self, *, kind: str, pattern: dict[str, Any], action: dict[str, Any], source_item: str | None,
         created_by: str, dataset: str, origin: RuleOrigin = "learned",
@@ -465,10 +491,14 @@ class DbRunStore:
             )).fetchone()
             return row["id"]
 
-    async def list_rules(self) -> list[Rule]:
+    async def list_rules(self, dataset: str | None = None) -> list[Rule]:
         async with await self._connect() as conn:
-            rows = await (await conn.execute(f"select {RULE_COLS} from rules order by id")).fetchall()
-            return [Rule(**r) for r in rows]
+            if dataset is None:
+                cur = await conn.execute(f"select {RULE_COLS} from rules order by id")
+            else:
+                cur = await conn.execute(
+                    f"select {RULE_COLS} from rules where dataset = %s and active order by id", (dataset,))
+            return [Rule(**r) for r in await cur.fetchall()]
 
     async def reset(self, dataset: str, *, actor: str) -> tuple[int, int]:
         from psycopg.types.json import Jsonb
