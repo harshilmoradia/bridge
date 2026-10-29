@@ -3,7 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthGate } from './components/AuthGate';
 import { AppLayout } from './components/AppLayout';
 import { queryClient } from './lib/queryClient';
-import { BankPage, LedgerPage, NotFoundPage, ReconcilePage, ReportPage, RunPage } from './pages/Pages';
+import { BankPage, LedgerPage, NotFoundPage, ReportPage, RunPage } from './pages/Pages';
+import { ReconcilePage } from './pages/ReconcilePage';
 
 export default function App() {
     return (

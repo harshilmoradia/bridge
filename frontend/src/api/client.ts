@@ -1,7 +1,7 @@
 import { liveRequest, USE_MOCKS, type RequestOptions } from './http';
 import { mockRequest } from './mock';
 import type {
-    BankTransaction, CreateRunRequest, CreateRunResponse, Dataset, DecisionRequest, DecisionResponse,
+    BankTransaction, CreateRunRequest, CreateRunResponse, Dataset, DecisionRequest, DecisionResponse, DemoResetResponse,
     GlEntry, Item, RangeParams, ReconStatus, Rule, Run, Statement,
 } from './types';
 
@@ -24,5 +24,5 @@ export const api = {
     decide: (itemId: string, body: DecisionRequest) =>
         request<DecisionResponse>(`/items/${encodeURIComponent(itemId)}/decision`, { method: 'POST', body }),
     rules: (signal?: AbortSignal) => request<Rule[]>('/rules', { signal }),
-    resetDemo: () => request<{ status: string }>('/demo/reset', { method: 'POST' }),
+    resetDemo: () => request<DemoResetResponse>('/demo/reset', { method: 'POST' }),
 };
