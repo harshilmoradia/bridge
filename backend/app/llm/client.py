@@ -1,21 +1,30 @@
 """Tiered LLM client: tier -> model, JSON mode with repair retries, timeouts, usage capture.
 
-Agents call `complete_json(tier, messages, Schema)`. Every call returns `CallStats`
+Agents call `complete_json(tier, messages, Schema)` or, for the tool-using resolve agent,
+`complete_tools(tier, messages, tools)` (native OpenAI tools, decided in B-07). Every call returns `CallStats`
 (model, latency, tokens, attempts) for the `run_steps` row.
 """
 
 import asyncio
+import inspect
 import json
 import re
 import time
 from dataclasses import dataclass
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
 from app.core.errors import LLMInvalidOutputError, LLMUnavailableError
-from app.providers.base import LLMProvider, get_llm_provider
+from app.llm.tools import Tool, ToolRun, ToolStep
+from app.providers.base import (
+    AgentMessage,
+    Completion,
+    LLMProvider,
+    ToolCall,
+    get_llm_provider,
+)
 from app.schemas.chat import ChatMessage
 
 Tier = Literal["nano", "super", "ultra"]
@@ -106,18 +115,70 @@ class LLMClient:
             f"{tier} output failed validation after {self.max_repairs + 1} attempts: {problem}"
         )
 
+    async def complete_tools(
+        self,
+        tier: Tier,
+        messages: list[ChatMessage],
+        tools: list[Tool],
+        *,
+        max_turns: int = 6,
+    ) -> tuple[ToolRun, CallStats]:
+        """Native tool loop: the model calls tools until it answers in text or hits `max_turns`.
+
+        Arguments are validated against each tool's Pydantic model. A bad call goes back to
+        the model as a tool error naming the field and reason, never the rejected value.
+        """
+        by_name = {tool.name: tool for tool in tools}
+        specs = [tool.spec() for tool in tools]
+        convo: list[ChatMessage] = list(messages)
+        steps: list[ToolStep] = []
+        total: CallStats | None = None
+        for turn in range(1, max_turns + 1):
+            result, stats = await self._generate(tier, convo, json_mode=False, tools=specs)
+            total = _merge(total, stats, turn)
+            if not result.tool_calls:
+                return ToolRun(text=clean_output(result.content), steps=tuple(steps)), total
+            convo.append(AgentMessage(
+                role="assistant", content=result.content, tool_calls=list(result.tool_calls)))
+            for call in result.tool_calls:
+                output, ok = await _run_tool(by_name.get(call.name), call)
+                steps.append(ToolStep(name=call.name, ok=ok))
+                convo.append(AgentMessage(
+                    role="tool", content=json.dumps(output), tool_call_id=call.id))
+        assert total is not None
+        return ToolRun(text=None, steps=tuple(steps)), total
+
     async def _call(
         self, tier: Tier, messages: list[ChatMessage], *, json_mode: bool
     ) -> tuple[str, CallStats]:
+        result, stats = await self._generate(tier, messages, json_mode=json_mode)
+        return result.content, stats
+
+    async def _generate(
+        self,
+        tier: Tier,
+        messages: list[ChatMessage],
+        *,
+        json_mode: bool,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> tuple[Completion, CallStats]:
         model, timeout = self.models[tier], self.timeouts[tier]
         start = time.perf_counter()
-        try:
-            async with asyncio.timeout(timeout):
-                result = await self.provider.generate(
-                    messages, model, json_mode=json_mode, timeout=timeout
-                )
-        except TimeoutError as exc:
-            raise LLMUnavailableError(f"{tier} call timed out after {timeout:g}s") from exc
+        for attempt in (1, 2):
+            try:
+                async with asyncio.timeout(timeout):
+                    result = await self.provider.generate(
+                        messages, model, json_mode=json_mode, timeout=timeout,
+                        **({"tools": tools} if tools else {}),
+                    )
+                break
+            except TimeoutError as exc:
+                # Not retried: a stalled call already cost the full timeout.
+                raise LLMUnavailableError(f"{tier} call timed out after {timeout:g}s") from exc
+            except LLMUnavailableError:
+                # Network blips (ReadError, 5xx) seen live under parallel load: retry once.
+                if attempt == 2:
+                    raise
         stats = CallStats(
             tier=tier,
             model=result.model,
@@ -125,7 +186,20 @@ class LLMClient:
             prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,
         )
-        return result.content, stats
+        return result, stats
+
+
+async def _run_tool(tool: Tool | None, call: ToolCall) -> tuple[dict[str, Any], bool]:
+    if tool is None:
+        return {"error": "unknown tool"}, False
+    try:
+        args = tool.args.model_validate_json(call.arguments)
+    except ValidationError as exc:
+        return {"error": f"invalid arguments: {_problem(exc)}"}, False
+    output = tool.run(args)
+    if inspect.isawaitable(output):
+        output = await output
+    return output, True
 
 
 def _merge(total: CallStats | None, stats: CallStats, attempt: int) -> CallStats:
