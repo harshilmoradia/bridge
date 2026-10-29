@@ -34,6 +34,7 @@ COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend/app ./app
+COPY demo-data /demo-data
 RUN uv sync --frozen --no-dev
 
 COPY --from=frontend /frontend/dist ./static
