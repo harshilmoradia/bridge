@@ -266,6 +266,8 @@ async def test_run_items_and_decision_routes_work(client):
     from app.api.routes import runs as run_routes
     from app.schemas.runs import Item, ProposedEntry
 
+    run_routes.RUNS.clear()
+    run_routes.ITEMS.clear()
     create_response = await client.post(
         "/api/v1/runs",
         json={
@@ -282,7 +284,7 @@ async def test_run_items_and_decision_routes_work(client):
         kind="unknown",
         resolution="escalate",
         status="needs_approval",
-        bank_ids=["BANK099"],
+        bank_ids=["BANK032"],
         gl_ids=["GL099"],
         amount_delta="15.00",
         reasoning="Needs review for the vendor credit.",
@@ -318,6 +320,11 @@ async def test_run_items_and_decision_routes_work(client):
     body = decision_response.json()
     assert body["item"]["status"] == "approved"
     assert body["item"]["proposed_entry"]["status"] == "approved"
+    assert body["statement"]["book"]["closing_balance"] == "47683.90"
+    assert body["statement"]["book"]["lines"][0]["amount"] == "-15.00"
+    assert body["statement"]["book"]["adjusted_balance"] == "47668.90"
+    run_response = await client.get(f"/api/v1/runs/{run_id}")
+    assert run_response.json()["counts"]["approved"] == 1
 
 
 async def test_create_run_route_triggers_reconciliation_workflow(client, monkeypatch):
@@ -504,6 +511,8 @@ async def test_db_run_store_persists_results_and_returns_stable_item_ids(monkeyp
 
 
 async def test_db_run_store_persists_decision_and_audit(monkeypatch):
+    from decimal import Decimal
+
     from app.recon.store import DbStore
     from app.schemas.runs import DecisionRequest
 
@@ -532,14 +541,15 @@ async def test_db_run_store_persists_decision_and_audit(monkeypatch):
     }
 
     class FakeCursor:
-        def __init__(self, row=None):
+        def __init__(self, row=None, rows=None):
             self.row = row
+            self.rows = rows or ([] if row is None else [row])
 
         async def fetchone(self):
             return self.row
 
         async def fetchall(self):
-            return []
+            return self.rows
 
     class FakeConn:
         def __init__(self):
@@ -554,26 +564,27 @@ async def test_db_run_store_persists_decision_and_audit(monkeypatch):
         async def execute(self, sql, params=None):
             self.calls.append((sql, params))
             text = sql.lower()
+            if "from balances where dataset" in text:
+                return FakeCursor({
+                    "company": "Northbrook Goods Co.",
+                    "cash_account": "1010",
+                    "period_start": "2026-10-01",
+                    "period_end": "2026-10-10",
+                    "bank_opening_balance": "0.00",
+                    "bank_closing_balance": "48547.99",
+                    "gl_opening_balance": "0.00",
+                    "gl_closing_balance": "47683.90",
+                })
+            if "from bank_transactions where dataset" in text or "from gl_entries where dataset" in text:
+                return FakeCursor()
             if "from items i left join proposed_entries" in text:
-                if "select i.id::text" in text:
-                    if "from runs where" in text:
-                        return FakeCursor({
-                            "id": "11111111-1111-4111-8111-111111111111",
-                            "dataset": "northbrook-2026-10",
-                            "period_start": "2026-10-01",
-                            "period_end": "2026-10-10",
-                            "status": "running",
-                            "counts": {},
-                            "report": None,
-                            "error": None,
-                            "created_at": "2026-10-27T00:00:00Z",
-                            "updated_at": "2026-10-27T00:00:00Z",
-                        })
-                    row = dict(existing_item)
-                    if any("update items set status" in call_sql.lower() for call_sql, _ in self.calls):
-                        row["status"] = "approved"
-                        row["entry_status"] = "approved"
-                    return FakeCursor(row)
+                row = dict(existing_item)
+                if any("update items set status" in call_sql.lower() for call_sql, _ in self.calls):
+                    row["status"] = "approved"
+                    row["entry_status"] = "approved"
+                if "where i.id::text = %s" in text:
+                    return FakeCursor(row=row)
+                return FakeCursor(rows=[row])
             if "from runs where id::text" in text:
                 return FakeCursor({
                     "id": "11111111-1111-4111-8111-111111111111",
@@ -603,6 +614,8 @@ async def test_db_run_store_persists_decision_and_audit(monkeypatch):
 
     assert response.item.status == "approved"
     assert response.item.proposed_entry.status == "approved"
+    assert response.statement.book.closing_balance == Decimal("47683.90")
+    assert response.statement.book.adjusted_balance == Decimal("47678.90")
     statements = [sql.lower() for sql, _ in fake_conn.calls]
     assert any("insert into decisions" in sql for sql in statements)
     assert any("insert into audit_log" in sql for sql in statements)

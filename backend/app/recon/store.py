@@ -107,23 +107,29 @@ def _item_from_db_row(row: dict[str, object]) -> Item:
     })
 
 
-def _decision_response(item: Item, run: Run) -> DecisionResponse:
-    statement = _empty_statement(run)
-    if item.proposed_entry is not None and item.status == "approved":
-        statement.book.lines.append(
-            StatementLine(
-                item_id=item.id,
-                kind=item.kind,
-                label=item.proposed_entry.memo,
-                amount=item.amount_delta,
-                status=item.status,
-                applied=True,
-                bank_ids=item.bank_ids,
-                gl_ids=item.gl_ids,
-            )
+def _item_ref(item: Item) -> ItemRef:
+    entry = None
+    if item.proposed_entry is not None:
+        entry = ProposedEntry(
+            debit_account=item.proposed_entry.debit_account,
+            credit_account=item.proposed_entry.credit_account,
+            amount=item.proposed_entry.amount,
+            memo=item.proposed_entry.memo,
         )
-        statement.book.adjusted_balance += Decimal(str(item.amount_delta))
-        statement.unreconciled_difference -= Decimal(str(item.amount_delta))
+    return ItemRef(
+        id=item.id,
+        status=item.status,
+        bank_ids=tuple(item.bank_ids),
+        gl_ids=tuple(item.gl_ids),
+        kind=item.kind,
+        entry=entry,
+    )
+
+
+def _decision_response(item: Item, dataset: Dataset, run_id: str, items: list[ItemRef]) -> DecisionResponse:
+    from app.recon.statement import build_statement
+
+    statement = build_statement(dataset, run_id, items)
     return DecisionResponse(item=item, statement=statement)
 
 
@@ -281,24 +287,12 @@ class MemoryRunStore:
             item.proposed_entry.amount = request.entry_override.amount
             item.proposed_entry.memo = request.entry_override.memo
 
-        statement = _empty_statement(run)
-        if item.proposed_entry is not None and item.status == "approved":
-            statement.book.lines.append(
-                StatementLine(
-                    item_id=item.id,
-                    kind=item.kind,
-                    label=item.proposed_entry.memo,
-                    amount=item.amount_delta,
-                    status=item.status,
-                    applied=True,
-                    bank_ids=item.bank_ids,
-                    gl_ids=item.gl_ids,
-                )
-            )
-            statement.book.adjusted_balance = statement.book.adjusted_balance + Decimal(str(item.amount_delta))
-            statement.unreconciled_difference = statement.unreconciled_difference - Decimal(str(item.amount_delta))
-
-        return DecisionResponse(item=item, statement=statement)
+        run.updated_at = self._now()
+        run.counts.approved = sum(x.status == "approved" for x in await self.list_items(run.id))
+        run.counts.rejected = sum(x.status == "rejected" for x in await self.list_items(run.id))
+        dataset = load_dataset(run.dataset)
+        refs = [_item_ref(x) for x in await self.list_items(run.id)]
+        return _decision_response(item, dataset, run.id, refs)
 
 
 MEMORY_RUN_STORE = MemoryRunStore()
@@ -671,7 +665,11 @@ class DbStore:
 
         updated_item = _item_from_db_row(updated_row)
         run = Run.model_validate({**run_row, "steps": []})
-        return _decision_response(updated_item, run)
+        dataset = await self.dataset(run.dataset)
+        if dataset is None:
+            raise AppError(code="dataset_not_found", message=f"Dataset {run.dataset} does not exist", status_code=404)
+        run_items = await self.run_items(run.dataset, run.id)
+        return _decision_response(updated_item, dataset, run.id, list(run_items.items))
 
     async def list_items_by_id(self, item_id: str) -> list[Item]:
         async with await self._connect() as conn:
