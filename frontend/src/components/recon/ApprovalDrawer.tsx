@@ -4,7 +4,9 @@ import { RuleChip } from '../RuleChip';
 import { useDecideItem } from '../../api/hooks';
 import type { EvidenceRef, Item } from '../../api/types';
 import { buildOverride, validateEntry, type EntryDraft } from '../../lib/entry';
+import { EyeOff } from 'lucide-react';
 import { Money } from '../Money';
+import { InjectionBadge } from './GuardrailCallouts';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../ui/sheet';
 
@@ -38,6 +40,16 @@ function ApprovalCard({ item, ui, setUi, onEvidence, onDecide, busy }: CardProps
                 <h3 className="flex flex-wrap items-center gap-2 font-medium">{item.kind.replaceAll('_', ' ')}<RuleChip item={item} /></h3>
                 <Money value={item.amount_delta} className="font-medium" />
             </header>
+            {(item.flags.includes('injection_flagged') || item.flags.includes('pii_redacted')) && (
+                <div className="flex flex-wrap items-center gap-1.5" aria-label="Guardrail flags">
+                    {item.flags.includes('injection_flagged') && <InjectionBadge />}
+                    {item.flags.includes('pii_redacted') && (
+                        <span data-testid="pii-redacted-badge" className="inline-flex items-center gap-1 rounded-4xl border px-2 py-0.5 text-xs text-muted-foreground" title="Personal data was masked before any model saw this item">
+                            <EyeOff className="size-3" aria-hidden="true" />PII masked
+                        </span>
+                    )}
+                </div>
+            )}
             <p className="text-sm text-muted-foreground">{item.reasoning}</p>
 
             {item.evidence.length > 0 && (

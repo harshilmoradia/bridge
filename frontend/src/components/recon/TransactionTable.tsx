@@ -4,6 +4,7 @@ import { distinct, emptyFilters, filterRows, sortRows, trimSelection, type SortK
 import { StatusChip } from '../StatusChip';
 import { STATUS_LABEL } from '../../lib/statusLabel';
 import { Money } from '../Money';
+import { GuardrailCallouts } from './GuardrailCallouts';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import type { ReconStatus } from '../../api/types';
@@ -122,6 +123,7 @@ export function TransactionTable({ rows, typeLabel = 'Type', selectable = true, 
                                 <td className="max-w-md p-2">
                                     <span className="line-clamp-2">{r.description}</span>
                                     <span className="text-xs text-muted-foreground">{r.id}{r.extra && ` · ${r.extra}`}</span>
+                                    <GuardrailCallouts guardrail={r.guardrail} original={r.original} />
                                 </td>
                                 <td className="p-2">{r.type}</td>
                                 <td className="p-2 text-right"><Money value={r.amount} /></td>
