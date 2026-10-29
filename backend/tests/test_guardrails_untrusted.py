@@ -236,3 +236,14 @@ def test_prompt_row_needs_an_id():
 def test_prompt_row_rejects_float_money():
     with pytest.raises(TypeError):
         prompt_row({"txn_id": "B1", "description": "PMT", "amount": -750.0})
+
+
+def test_screen_text_normalises_masks_and_flags_in_one_pass(bank):
+    from app.guardrails import screen_text
+
+    # Fullwidth digits fold to ASCII before masking, so the account number is still caught.
+    pii = screen_text("ZELLE FROM J MARTINEZ ACCT ＊＊＊＊４４１７")
+    assert pii.pii_masked and "4417" in pii.text and not pii.injection.flagged
+    plain = screen_text("MONTHLY SERVICE FEE")
+    assert (plain.text, plain.pii_masked, plain.injection.flagged) == ("MONTHLY SERVICE FEE", False, False)
+    assert screen_text(bank["BANK074"]["description"]).injection.flagged

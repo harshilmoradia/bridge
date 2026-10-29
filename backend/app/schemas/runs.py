@@ -7,7 +7,7 @@ breaks the frontend. Steps that share a `position` run in parallel.
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import ApiError, ItemStatus, Money
 from app.schemas.reads import Statement
@@ -122,6 +122,14 @@ class EntryOverride(BaseModel):
     amount: Money = Field(gt=0)
     memo: str
 
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _money_is_a_string(cls, value: Any) -> Any:
+        # Money is a decimal string in JSON; a JSON number may already have lost cents to float.
+        if isinstance(value, (int, float)):
+            raise ValueError("amount must be a decimal string such as \"25.00\"")
+        return value
+
 
 class DecisionRequest(BaseModel):
     decision: Literal["approve", "reject"]
@@ -133,6 +141,12 @@ class DecisionRequest(BaseModel):
 class DecisionResponse(BaseModel):
     item: Item
     statement: Statement
+
+
+class DemoResetResponse(BaseModel):
+    dataset: str
+    runs_deleted: int
+    rules_deleted: int
 
 
 class Rule(BaseModel):
