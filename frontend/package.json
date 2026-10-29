@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src vite.config.ts --deny-warnings",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test tests/transactions.test.ts tests/money.test.ts tests/tableModel.test.ts tests/workspace.test.ts tests/entry.test.ts tests/keys.test.ts tests/mockExtras.test.ts tests/auth.test.ts tests/profiles.test.mjs"
+    "sync-evals": "node scripts/sync-evals.mjs",
+    "test": "node --experimental-strip-types --import ./tests/support/register-json.mjs --test tests/transactions.test.ts tests/money.test.ts tests/tableModel.test.ts tests/workspace.test.ts tests/entry.test.ts tests/keys.test.ts tests/stepper.test.ts tests/trace.test.ts tests/rules.test.ts tests/demoReset.test.ts tests/report.test.ts tests/mockExtras.test.ts tests/auth.test.ts tests/profiles.test.mjs tests/evalSummary.test.ts tests/evalExtract.test.mjs tests/reportBody.test.mjs tests/mockRoutes.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -24,8 +25,10 @@
     "react": "^19.2.8",
     "react-day-picker": "^10.0.2",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
     "react-router": "^8.5.0",
     "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "remixicon": "^4.9.1",
     "shadcn": "^4.21.3",
     "sonner": "^2.0.8",

@@ -21,6 +21,10 @@ const MONEY_RE = /^[-+]?\d+(\.\d+)?$/;
 // Malformed or empty strings are not zero.
 export const isZeroMoney = (value: string) => MONEY_RE.test(value) && toCents(value) === 0n;
 
+// True once, on the poll where a run goes from queued/running to a finished status; used for the final audit fetch.
+export const runJustFinished = (prev: RunStatus | undefined, current: RunStatus | undefined) =>
+    isRunActive(prev) && current !== undefined && !isRunActive(current);
+
 // Refresh the statement and items the first time a run started on this page reports completed, even if no earlier poll was seen.
 export function shouldRefreshOnComplete(startedRunId: string | null, runId: string | undefined, status: RunStatus | undefined, refreshedRunId: string | null): boolean {
     return status === 'completed' && startedRunId !== null && runId === startedRunId && refreshedRunId !== runId;
@@ -34,3 +38,6 @@ export function interpolateMoney(from: string, to: string, t: number): string {
     const b = toCents(to);
     return fromCents(a + ((b - a) * BigInt(Math.round(p * 1000))) / 1000n);
 }
+
+// The Reconcile date range defaults to the selected dataset's period, so run, statement and report agree.
+export const defaultRange = (d: { period_start: string; period_end: string }) => ({ from: d.period_start, to: d.period_end });

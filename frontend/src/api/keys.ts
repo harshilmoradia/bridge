@@ -11,6 +11,7 @@ export const keys = {
     statement: (dataset: string, runId?: string) => ['statement', dataset, runId ?? null] as const,
     run: (id: string) => ['run', id] as const,
     items: (id: string, status?: ReconStatus) => ['run-items', id, status ?? null] as const,
+    audit: (id: string) => ['run-audit', id] as const,
     rules: ['rules'] as const,
 };
 

@@ -3,14 +3,21 @@ import datasets from './fixtures/datasets.json';
 import bankTransactions from './fixtures/bank-transactions.json';
 import glEntries from './fixtures/gl-entries.json';
 import statementFixture from './fixtures/statement.json';
-import runCompleted from './fixtures/run-completed.json';
-import runRunning from './fixtures/run-running.json';
+import runCompletedFixture from './fixtures/run-completed.json';
+import { MOCK_REPORT } from './mockReport';
 import itemsFixture from './fixtures/items.json';
+import auditFixture from './fixtures/run-audit.json';
+import { applyRules } from '../lib/rules';
+import { postToStatement, settleRuleItems } from '../lib/statementPost';
 import rulesFixture from './fixtures/rules.json';
 import { ApiError, type RequestOptions } from './http';
 import { MOCK_EXTRA_ROWS } from './mockExtras';
+import { MockRunPoller, mockStageCount } from './mockProgress';
 import { fromCents, toCents } from '../lib/cents';
-import type { BankTransaction, DecisionRequest, DecisionResponse, DemoResetResponse, GlEntry, Item, ReconStatus, Rule, Statement } from './types';
+import type { AuditEntry, BankTransaction, Run, DecisionRequest, DecisionResponse, DemoResetResponse, GlEntry, Item, ReconStatus, Rule, Statement } from './types';
+
+// The fixture's short report is replaced here with the fuller mock one; docs fixtures stay untouched.
+const runCompleted = { ...runCompletedFixture, report: MOCK_REPORT };
 
 const DELAY_MS = 250;
 const delay = () => new Promise(resolve => setTimeout(resolve, DELAY_MS));
@@ -27,18 +34,21 @@ const extraItems = (): Item[] => MOCK_EXTRA_ROWS.map(([n, kind, delta, account, 
 }));
 const initialItems = (): Item[] => [...copy<Item[]>(itemsFixture), ...extraItems()];
 let items = initialItems();
-let currentRunId: string = runCompleted.id;
 let rules = copy<Rule[]>(rulesFixture);
+// Rules learned by approving with remember in this mock session; the next run applies them. The seeded fixture rule is display-only.
+let learnedRules: (Rule & { amount_sign: 1 | -1 })[] = [];
 let statement = initialStatement();
-// After POST /runs the run reports "running" for a few polls, then "completed", so the live step list can be seen.
-let pollsUntilDone = 0;
+const initialAudit = () => copy<AuditEntry[]>(auditFixture);
+let audit = initialAudit();
+// After POST /runs the run advances one stage per poll, then reports "completed", so the live step list can be seen.
+const poller = new MockRunPoller(runCompleted.id, mockStageCount(runCompleted as Run));
 
-const notFound = (what: string) => new ApiError('not_found', `${what} not found`, 404);
+const notFound = (what: string, code = 'not_found') => new ApiError(code, `${what} not found`, 404);
 const inRange = (date: string, from?: string, to?: string) => (!from || date >= from) && (!to || date <= to);
 
 // Rows are fixtures with no item links; once the (mock) run is done, tag them from the in-memory items so highlighting and live statuses work.
 function withItems<R extends { recon_status: ReconStatus; item_id: string | null }>(rows: R[], idOf: (row: R) => string, side: 'bank_ids' | 'gl_ids'): R[] {
-    if (pollsUntilDone > 0) return copy<R[]>(rows);
+    if (poller.active) return copy<R[]>(rows);
     const byRow = new Map<string, Item>();
     for (const item of items) for (const id of item[side]) byRow.set(id, item);
     return rows.map(row => {
@@ -59,28 +69,35 @@ function route(path: string, method: string, query: Record<string, string | unde
     if (method === 'GET' && path === '/statement') return statement;
     if (method === 'GET' && path === '/rules') return rules;
     if (method === 'POST' && path === '/demo/reset') {
-        items = initialItems(); currentRunId = runCompleted.id; rules = copy(rulesFixture); statement = initialStatement(); pollsUntilDone = 0;
-        const response: DemoResetResponse = { dataset: statement.dataset, runs_deleted: 1, rules_deleted: 0 };
+        const deletedRules = learnedRules.length;
+        items = initialItems(); poller.reset(runCompleted.id); rules = copy(rulesFixture); learnedRules = []; statement = initialStatement(); audit = initialAudit();
+        const response: DemoResetResponse = { dataset: statement.dataset, runs_deleted: 1, rules_deleted: deletedRules };
         return response;
     }
     if (method === 'POST' && path === '/runs') {
-        pollsUntilDone = 3;
-        currentRunId = crypto.randomUUID(); // a fresh id per run, as the real API gives
-        items = initialItems().map(i => ({ ...i, run_id: currentRunId }));
-        statement = { ...initialStatement(), run_id: currentRunId };
-        return { id: currentRunId, status: 'queued' };
+        const id = crypto.randomUUID(); // a fresh id per run, as the real API gives
+        poller.start(id);
+        items = applyRules(initialItems().map(i => ({ ...i, run_id: id })), learnedRules); audit = [];
+        statement = { ...initialStatement(), run_id: id };
+        settleRuleItems(statement, items);
+        return { id, status: 'queued' };
+    }
+    const auditMatch = /^\/runs\/([^/]+)\/audit$/.exec(path);
+    if (method === 'GET' && auditMatch) {
+        if (auditMatch[1] !== runCompleted.id && auditMatch[1] !== poller.currentId) throw notFound('Run', 'run_not_found');
+        return poller.active && auditMatch[1] === poller.currentId ? [] : audit.map(e => ({ ...e, run_id: auditMatch[1] }));
     }
     const runMatch = /^\/runs\/([^/]+)(\/items)?$/.exec(path);
     if (method === 'GET' && runMatch) {
-        if (runMatch[1] !== runCompleted.id && runMatch[1] !== currentRunId) throw notFound('Run');
-        if (runMatch[2]) return pollsUntilDone > 0 ? [] : items.filter(i => !query.status || i.status === query.status);
-        if (pollsUntilDone > 0) { pollsUntilDone -= 1; return { ...runRunning, id: runMatch[1] }; }
-        return { ...runCompleted, id: runMatch[1] };
+        if (runMatch[1] !== runCompleted.id && runMatch[1] !== poller.currentId) throw notFound('Run', 'run_not_found');
+        if (runMatch[2]) return poller.active ? [] : items.filter(i => !query.status || i.status === query.status);
+        return poller.poll(runCompleted as Run, runMatch[1]);
     }
     const decisionMatch = /^\/items\/([^/]+)\/decision$/.exec(path);
     if (method === 'POST' && decisionMatch) {
         const item = items.find(i => i.id === decisionMatch[1]);
-        if (!item) throw notFound('Item');
+        if (!item) throw notFound('Item', 'item_not_found');
+        if (item.status !== 'needs_approval') throw new ApiError('item_not_pending', `Item ${item.id} is ${item.status}; only needs_approval items can be decided`, 409);
         const request = body as DecisionRequest;
         const approved = request.decision === 'approve';
         const override = request.entry_override;
@@ -91,13 +108,17 @@ function route(path: string, method: string, query: Record<string, string | unde
         item.status = approved ? 'approved' : 'rejected';
         if (item.proposed_entry) item.proposed_entry.status = item.status;
         if (approved) {
-            statement.book.lines.push({ item_id: item.id, kind: item.kind, label: item.proposed_entry?.memo ?? item.kind, amount: delta, status: 'approved', applied: true, bank_ids: item.bank_ids, gl_ids: item.gl_ids });
-            statement.book.adjusted_balance = fromCents(toCents(statement.book.adjusted_balance) + toCents(delta));
-            statement.unreconciled_difference = fromCents(toCents(statement.unreconciled_difference) - toCents(delta));
+            postToStatement(statement, item, delta);
         }
         if (request.remember) {
-            rules.push({ id: rules.length + 1, kind: item.kind, pattern: { description_regex: item.proposed_entry?.memo ?? item.kind }, action: { debit: item.proposed_entry?.debit_account, credit: item.proposed_entry?.credit_account }, source_item: item.id, created_by: 'demo@bridge.ai', active: true, created_at: new Date().toISOString() });
+            const learned: Rule & { amount_sign: 1 | -1 } = { id: Math.max(0, ...rules.map(r => r.id)) + 1, kind: item.kind, pattern: { description_regex: item.proposed_entry?.memo ?? item.kind }, action: { debit: item.proposed_entry?.debit_account, credit: item.proposed_entry?.credit_account }, amount_sign: toCents(item.amount_delta) < 0n ? -1 : 1, source_item: item.id, created_by: 'demo@bridge.ai', active: true, created_at: new Date().toISOString() };
+            rules.push(learned); learnedRules.push(learned);
         }
+        audit.push({
+            id: Math.max(0, ...audit.map(e => e.id)) + 1, run_id: item.run_id, entity_type: 'item', entity_id: item.id, action: request.decision,
+            actor: 'user:demo@bridge.local', model: null, created_at: new Date().toISOString(),
+            detail: { decision_id: crypto.randomUUID(), remember: Boolean(request.remember), note: request.note ?? null, entry_override: override ?? null },
+        });
         const response: DecisionResponse = copy<DecisionResponse>({ item, statement });
         return response;
     }

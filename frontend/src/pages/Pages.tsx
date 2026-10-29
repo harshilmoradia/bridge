@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { QueryState } from '../components/QueryState';
-import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Skeleton } from '../components/ui/skeleton';
 import { useBankTransactions, useDatasets, useGlEntries, useRun, useStatement } from '../api/hooks';
-import type { Dataset } from '../api/types';
+import type { Dataset, Run } from '../api/types';
+import { reportView } from '../lib/report';
 import { Money } from '../components/Money';
 import { TransactionTable } from '../components/recon/TransactionTable';
 import { bankToRow, glToRow } from '../lib/tableModel';
@@ -63,47 +63,44 @@ export function LedgerPage() {
     );
 }
 
-export function RunPage() {
-    const { id } = useParams<{ id: string }>();
-    const run = useRun(id);
+const ReportMarkdown = lazy(() => import('../components/ReportMarkdown'));
+
+export function ReportBody({ run }: { run: Run }) {
+    const view = reportView(run);
+    if (view === 'failed') {
+        return <p role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm text-destructive">{run.error?.message ?? 'The run failed, so there is no report.'}</p>;
+    }
+    if (view === 'waiting') return <p role="status" className="text-sm text-muted-foreground">Report will appear when the run completes.</p>;
+    if (view === 'empty') return <p className="text-sm text-muted-foreground">This run finished without a report.</p>;
+    const template = run.steps.some(s => s.agent === 'report' && s.status === 'failed');
     return (
-        <Page title="Run" subtitle={id}>
-            <QueryState query={run}>
-                {r => (
-                    <>
-                        <p className="text-sm">Status <Badge variant="secondary">{r.status}</Badge> · {r.counts.matched} matched, {r.counts.reconciling_item} reconciling, {r.counts.needs_approval} need approval</p>
-                        <Table>
-                            <TableHeader><TableRow><TableHead>Step</TableHead><TableHead>Tier</TableHead><TableHead>Model</TableHead><TableHead className="text-right">Latency</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {[...r.steps].sort((x, y) => x.position - y.position).map(step => (
-                                    <TableRow key={step.id}>
-                                        <TableCell>{step.position}. {step.label}</TableCell><TableCell>{step.tier}</TableCell>
-                                        <TableCell className="font-mono text-xs">{step.model ?? 'code'}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{step.latency_ms ?? '-'} ms</TableCell><TableCell>{step.status}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </>
-                )}
-            </QueryState>
-        </Page>
+        <div className="space-y-2">
+            {run.status === 'failed' && run.error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{run.error.message}</p>}
+            {template && <p className="text-xs text-muted-foreground">Template report: the report step failed, so this was written by code instead of the model. See the trace for why.</p>}
+            <Card><CardContent className="pt-4">
+                <Suspense fallback={<div role="status" aria-label="Loading report" className="space-y-2"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div>}>
+                    <ReportMarkdown source={run.report ?? ''} />
+                </Suspense>
+            </CardContent></Card>
+        </div>
     );
 }
 
 export function ReportPage() {
     const { runId } = useParams<{ runId: string }>();
     const run = useRun(runId);
-    const { dataset } = useDataset();
+    const { query: datasets, dataset } = useDataset();
     const statement = useStatement(dataset?.id, runId);
     return (
-        <Page title="Report" subtitle={runId}>
-            <QueryState query={run}>
-                {r => r.report
-                    ? <Card><CardContent className="whitespace-pre-wrap pt-4 text-sm">{r.report}</CardContent></Card>
-                    : <p className="text-sm text-muted-foreground">The report is not ready yet.</p>}
+        <Page title="Report" subtitle={runId} actions={runId && <Link to={`/runs/${encodeURIComponent(runId)}`} className="text-sm font-medium text-primary underline">View trace</Link>}>
+            <QueryState query={run}>{r => <ReportBody run={r} />}</QueryState>
+            <QueryState query={datasets}>
+                {() => dataset && (
+                    <QueryState query={statement}>
+                        {s => <p className="text-sm">Unreconciled difference <Money value={s.unreconciled_difference} /></p>}
+                    </QueryState>
+                )}
             </QueryState>
-            {statement.data && <p className="text-sm">Unreconciled difference <Money value={statement.data.unreconciled_difference} /></p>}
         </Page>
     );
 }

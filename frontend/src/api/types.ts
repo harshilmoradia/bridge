@@ -82,6 +82,14 @@ export interface DecisionResponse { item: Item; statement: Statement }
 export interface Rule {
     id: number; kind: string; pattern: Record<string, unknown>; action: Record<string, unknown>;
     source_item: string | null; created_by: string; active: boolean; created_at: string;
+    dataset?: string | null; origin?: string | null;
 }
 
 export interface RangeParams { dataset: string; from?: string; to?: string }
+
+// One audit_log row, from GET /runs/{id}/audit (oldest first).
+export type AuditEntityType = 'run' | 'item' | 'entry' | 'rule' | 'guardrail' | 'dataset';
+export interface AuditEntry {
+    id: number; run_id: string | null; entity_type: AuditEntityType; entity_id: string | null;
+    action: string; actor: string; model: string | null; detail: Record<string, unknown>; created_at: string;
+}

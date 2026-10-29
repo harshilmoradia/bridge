@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApprovalDrawer } from '../components/recon/ApprovalDrawer';
-import { useBankTransactions, useCreateRun, useDatasets, useGlEntries, useResetDemo, useRun, useRunItems, useStatement } from '../api/hooks';
+import { useBankTransactions, useCreateRun, useDatasets, useGlEntries, useRun, useRunItems, useStatement } from '../api/hooks';
 import { keys } from '../api/keys';
 import type { Dataset, EvidenceRef, Item, Run } from '../api/types';
 import { Money } from '../components/Money';
 import { QueryState } from '../components/QueryState';
 import { StatementCard } from '../components/StatementCard';
 import { StatusChip } from '../components/StatusChip';
+import { RuleChip } from '../components/RuleChip';
+import { isRuleAutoResolved } from '../lib/rules';
+import { ResetDemoButton } from '../components/recon/ResetDemoButton';
+import { RunStepper } from '../components/recon/RunStepper';
 import { TransactionTable } from '../components/recon/TransactionTable';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/utils';
 import { bankToRow, glToRow, type TxRow } from '../lib/tableModel';
-import { isRunActive, itemsSignature, needsApproval, nextHighlight, shouldRefreshOnComplete } from '../lib/workspace';
+import { defaultRange, isRunActive, itemsSignature, needsApproval, nextHighlight, shouldRefreshOnComplete } from '../lib/workspace';
 import { Page } from './Pages';
 
 const field = 'h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
@@ -30,17 +36,22 @@ function RunStatusLine({ run }: { run: Run }) {
             {total > 0 && <span className="text-muted-foreground">{done} of {total} steps done</span>}
             {run.status === 'completed' && <span className="text-muted-foreground">{run.counts.matched} matched, {run.counts.auto_resolved} auto-resolved, {run.counts.needs_approval} need approval</span>}
             {run.status === 'failed' && <span className="text-destructive">{run.error?.message ?? 'The run failed.'}</span>}
+            <span className="ml-auto flex gap-3 font-medium">
+                {run.status === 'completed' && <Link to={`/report/${encodeURIComponent(run.id)}`} className="text-primary underline">Report</Link>}
+                <Link to={`/runs/${encodeURIComponent(run.id)}`} className="text-primary underline">View trace</Link>
+            </span>
         </div>
     );
 }
 
 function ItemButton({ item, active, onSelect }: { item: Item; active: boolean; onSelect: () => void }) {
     return (
-        <li data-item-id={item.id}>
+        <li data-item-id={item.id} data-rule-applied={isRuleAutoResolved(item) || undefined}>
             <button type="button" aria-pressed={active} onClick={onSelect}
-                className={cn('flex w-full flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-left text-sm', active && 'border-primary bg-primary/10')}>
+                className={cn('flex w-full flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-left text-sm', active && 'border-primary bg-primary/10', isRuleAutoResolved(item) && !active && 'border-dashed border-violet-500/50 bg-violet-500/5')}>
                 <span className="font-medium">{item.kind.replaceAll('_', ' ')}</span>
                 <StatusChip status={item.status} />
+                <RuleChip item={item} interactive={false} />
                 <Money value={item.amount_delta} />
             </button>
         </li>
@@ -52,20 +63,21 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
     const [datasetId, setDatasetId] = useState(datasets[0].id);
     const dataset = datasets.find(d => d.id === datasetId) ?? datasets[0];
     const [range, setRange] = useState<{ from: string; to: string } | null>(null);
-    const from = range?.from ?? dataset.period_start;
-    const to = range?.to ?? dataset.period_end;
+    const { from, to } = range ?? defaultRange(dataset);
     const [startedRunId, setStartedRunId] = useState<string | null>(null);
     const [highlight, setHighlight] = useState<string | null>(null);
     const [approvalOpen, setApprovalOpen] = useState(false);
 
     const statement = useStatement(dataset.id);
-    const runId = startedRunId ?? statement.data?.run_id ?? undefined;
+    // A reset deletes the run; the statement may still name it until it refetches, so that id stays dismissed.
+    const [dismissedRunId, setDismissedRunId] = useState<string | null>(null);
+    const statementRunId = statement.data?.run_id && statement.data.run_id !== dismissedRunId ? statement.data.run_id : undefined;
+    const runId = startedRunId ?? statementRunId;
     const run = useRun(runId);
     const items = useRunItems(runId);
     const bank = useBankTransactions({ dataset: dataset.id, from, to });
     const gl = useGlEntries({ dataset: dataset.id, from, to });
     const createRun = useCreateRun();
-    const reset = useResetDemo();
     const running = createRun.isPending || isRunActive(run.data?.status);
 
     const refreshLedgerViews = useCallback(
@@ -127,15 +139,23 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
                     <input type="date" className={field} value={to} min={from} disabled={running} onChange={e => e.target.value && setRange({ from, to: e.target.value })} />
                 </label>
                 <Button disabled={running} onClick={start}>{running ? 'Running...' : 'Run agents'}</Button>
-                <Button variant="outline" disabled={running || reset.isPending} onClick={() => reset.mutate(undefined, { onSuccess: () => { setStartedRunId(null); setHighlight(null); toast.success('Demo reset'); } })}>Reset demo</Button>
+                <ResetDemoButton disabled={running} onReset={() => { setDismissedRunId(runId ?? null); setStartedRunId(null); setHighlight(null); lastSignature.current = null; refreshedRunId.current = null; }} />
                 <Button variant="secondary" className="ml-auto" disabled={pending.length === 0} data-slot="approval-drawer-trigger" data-open={approvalOpen}
                     onClick={() => setApprovalOpen(true)}>Needs approval ({pending.length})</Button>
             </div>
 
             <ApprovalDrawer open={approvalOpen} onOpenChange={setApprovalOpen} items={pending} onEvidence={onEvidence} />
 
+            {!runId && <p className="text-sm text-muted-foreground">No run yet. Click Run agents.</p>}
+            {runId && run.isPending && <div role="status" aria-label="Loading run" className="space-y-2"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-16 w-full" /></div>}
             {run.data && <RunStatusLine run={run.data} />}
-            {run.isError && <p role="alert" className="text-sm text-destructive">Could not load the run: {run.error.message}</p>}
+            {run.data && <RunStepper run={run.data} />}
+            {run.isError && (
+                <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
+                    Could not load the run: {run.error.message}
+                    <Button variant="outline" size="sm" onClick={() => void run.refetch()}>Try again</Button>
+                </div>
+            )}
 
             <QueryState query={statement}>{s => <StatementCard statement={s} />}</QueryState>
 
