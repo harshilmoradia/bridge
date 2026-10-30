@@ -24,11 +24,11 @@ Follow [the Supabase setup guide](../docs/supabase-setup.md) for project creatio
 
 ## Demo behavior
 
-Visitors land straight in the **demo workspace** (sample data, no account). **Sign in** in the top bar opens the account screen when Supabase is configured; **Back to the demo** returns. Signed-in users currently see the same sample reconciliation features. Chat and document uploads are simulated. File contents are not parsed, approvals do not post to an ERP, and transactions are not yet stored in Supabase.
+Visitors land straight in the **demo workspace** (sample data, no account). **Sign in** in the top bar opens the account screen when Supabase is configured; **Back to the demo** returns. The Ask Bridge page uses the authenticated read-only RAG endpoint when connected to the backend; mock mode uses deterministic local transaction fixtures. File uploads are simulated and approvals do not post to an ERP.
 
 Demo transactions and audit history are saved under `bridge-demo-ledger-v1` in this browser's local storage. Clear that key to reset the sample data. Invalid stored data falls back to the initial samples. If storage is unavailable, the app remains usable and explains that changes last only for the current session.
 
-The backend chat endpoint requires a Supabase bearer token. The sample chat UI does not call it yet. Uploads and ledger posting still require API integration before production use.
+In local demo mode (`PUBLIC_DEMO_API=true`, the backend default), Ask Bridge works without login, like the other demo APIs. Set `PUBLIC_DEMO_API=false` when the backend must require confirmed-user bearer tokens. Search results can link to the existing approval inbox, but chat itself cannot approve or change records. Uploads and ERP posting still require integration before production use.
 
 ## Screenshots
 

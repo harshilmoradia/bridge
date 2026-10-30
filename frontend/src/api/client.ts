@@ -3,7 +3,7 @@ import { mockRequest } from './mock';
 import type {
     AuditEntry, BankTransaction, CreateRunRequest, CreateRunResponse, Dataset, DecisionRequest, DecisionResponse, DemoResetResponse,
     ForgetAllRulesResponse, ForgetRuleResponse,
-    GlEntry, Item, RangeParams, ReconStatus, Rule, Run, Statement,
+    GlEntry, Item, RagChatRequest, RagChatResponse, RangeParams, ReconStatus, Rule, Run, Statement,
 } from './types';
 
 function request<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -29,4 +29,5 @@ export const api = {
     forgetRule: (id: number) => request<ForgetRuleResponse>(`/rules/${id}`, { method: 'DELETE' }),
     forgetAllRules: () => request<ForgetAllRulesResponse>('/rules', { method: 'DELETE' }),
     resetDemo: () => request<DemoResetResponse>('/demo/reset', { method: 'POST' }),
+    ragChat: (body: RagChatRequest) => request<RagChatResponse>('/chat/ask', { method: 'POST', body }),
 };

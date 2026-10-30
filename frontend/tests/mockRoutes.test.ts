@@ -109,3 +109,27 @@ test('an unknown run is a 404 run_not_found on run, items and audit', async () =
     for (const path of ['/runs/nope', '/runs/nope/items', '/runs/nope/audit'])
         await assert.rejects(m(path), (e: Any) => e.code === 'run_not_found' && e.status === 404, path);
 });
+
+test('RAG mock finds semantically related fee records with current approval status', async () => {
+    await reset();
+    await startRun();
+    const response: Any = await m('/chat/ask', { method: 'POST', body: {
+        dataset: 'northbrook-2026-10', question: 'Which service charges need review?',
+        status: 'needs_approval', history: [],
+    } });
+    assert.equal(response.no_evidence, false);
+    assert.ok(response.sources.some((source: Any) => source.source_id === 'BANK032'));
+    const fee: Any = response.sources.find((source: Any) => source.source_id === 'BANK032');
+    assert.equal(fee.status, 'needs_approval');
+    assert.ok(fee.matched_by.includes('vector'));
+});
+
+test('RAG mock refuses an unknown dataset and returns no evidence for a miss', async () => {
+    await assert.rejects(m('/chat/ask', { method: 'POST', body: { dataset: 'missing', question: 'fee' } }),
+        (e: Any) => e.code === 'dataset_not_found' && e.status === 404);
+    const response: Any = await m('/chat/ask', { method: 'POST', body: {
+        dataset: 'northbrook-2026-10', question: 'unrelated astronomy topic',
+    } });
+    assert.equal(response.no_evidence, true);
+    assert.deepEqual(response.sources, []);
+});

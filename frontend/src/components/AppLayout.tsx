@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, ChartColumn, Landmark, LogIn, LogOut, Moon, Scale, Sun } from 'lucide-react';
+import { BookOpen, ChartColumn, Landmark, LogIn, LogOut, MessageSquareText, Moon, Scale, Sun } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { useDatasets } from '../api/hooks';
 import { useTheme } from '../context/theme';
@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 
 const NAV: { to: string; icon: LucideIcon; label: string }[] = [
     { to: '/reconcile', icon: Scale, label: 'Reconcile' },
+    { to: '/chat', icon: MessageSquareText, label: 'Ask Bridge' },
     { to: '/bank', icon: Landmark, label: 'Bank' },
     { to: '/ledger', icon: BookOpen, label: 'Ledger' },
     { to: '/evals', icon: ChartColumn, label: 'Model tiers' },

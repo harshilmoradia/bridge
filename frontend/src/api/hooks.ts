@@ -3,7 +3,7 @@ import { api } from './client';
 import { keys, writeStatement } from './keys';
 import { RUN_POLL_MS, isRunActive } from '../lib/workspace';
 import { isSeeded } from '../lib/rules';
-import type { CreateRunRequest, DecisionRequest, ForgetAllRulesResponse, Item, RangeParams, ReconStatus, Rule } from './types';
+import type { CreateRunRequest, DecisionRequest, ForgetAllRulesResponse, Item, RagChatRequest, RangeParams, ReconStatus, Rule } from './types';
 
 export { keys };
 
@@ -36,6 +36,8 @@ export const useRunAudit = (id: string | undefined, active = false) =>
     });
 
 export const useRules = () => useQuery({ queryKey: keys.rules, queryFn: ({ signal }) => api.rules(signal) });
+
+export const useRagChat = () => useMutation({ mutationFn: (body: RagChatRequest) => api.ragChat(body) });
 
 export function useCreateRun() {
     const client = useQueryClient();

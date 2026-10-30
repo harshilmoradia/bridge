@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { accountName, inTab, isTypingTarget, kindTitle, modelTier, nextSelection, stepSelection } from '../src/lib/inbox.ts';
+import { accountName, focusInboxItem, inTab, isTypingTarget, kindTitle, modelTier, nextSelection, stepSelection } from '../src/lib/inbox.ts';
 import type { ReconStatus } from '../src/api/types.ts';
 
 const withStatus = (status: ReconStatus, id = status) => ({ id, status });
@@ -11,6 +11,18 @@ test('tabs split items by status', () => {
     assert.deepEqual(inTab(items, 'pending').map(i => i.id), ['needs_approval']);
     assert.deepEqual(inTab(items, 'policy').map(i => i.id), ['auto_resolved', 'reconciling_item']);
     assert.deepEqual(inTab(items, 'decided').map(i => i.id), ['approved', 'rejected']);
+});
+
+test('focus deep links choose the existing inbox tab for the current item status', () => {
+    const items = [
+        withStatus('needs_approval', 'pending'), withStatus('auto_resolved', 'policy'),
+        withStatus('approved', 'approved'), withStatus('rejected', 'rejected'),
+    ];
+    assert.deepEqual(focusInboxItem(items, 'pending'), { tab: 'pending', index: 0 });
+    assert.deepEqual(focusInboxItem(items, 'policy'), { tab: 'policy', index: 0 });
+    assert.deepEqual(focusInboxItem(items, 'approved'), { tab: 'decided', index: 0 });
+    assert.deepEqual(focusInboxItem(items, 'rejected'), { tab: 'decided', index: 1 });
+    assert.equal(focusInboxItem(items, 'missing'), null);
 });
 
 test('kind titles are readable, unknown kinds fall back to spaced text', () => {

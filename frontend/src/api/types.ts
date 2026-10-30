@@ -106,3 +106,56 @@ export interface AuditEntry {
     id: number; run_id: string | null; entity_type: AuditEntityType; entity_id: string | null;
     action: string; actor: string; model: string | null; detail: Record<string, unknown>; created_at: string;
 }
+
+export type ChatSourceType = 'bank_transaction' | 'gl_entry';
+export type ChatHistoryMessage = { role: 'user' | 'assistant'; content: string };
+
+export interface RagChatRequest {
+    dataset: string;
+    question: string;
+    history?: ChatHistoryMessage[];
+    source_type?: ChatSourceType;
+    date_from?: string;
+    date_to?: string;
+    amount?: Money;
+    status?: ReconStatus;
+}
+
+export interface RagChatItem {
+    id: string;
+    run_id: string;
+    kind: string;
+    status: ReconStatus;
+    amount_delta: Money;
+    reasoning: string | null;
+    evidence: EvidenceRef[];
+    flags: string[];
+    proposed_entry: ProposedEntry | null;
+}
+
+export interface RagChatSource {
+    source_type: ChatSourceType;
+    source_id: string;
+    date: string;
+    amount: Money;
+    description: string;
+    type: string;
+    check_number: string | null;
+    running_balance: Money | null;
+    account: string | null;
+    counter_account: string | null;
+    counterparty: string | null;
+    guardrail: Guardrail;
+    status: ReconStatus;
+    item: RagChatItem | null;
+    score: number;
+    matched_by: string[];
+}
+
+export interface RagChatResponse {
+    message: { role: 'assistant'; content: string };
+    model: string;
+    sources: RagChatSource[];
+    citations: string[];
+    no_evidence: boolean;
+}

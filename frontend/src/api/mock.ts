@@ -16,7 +16,7 @@ import { MockRunPoller, mockStageCount } from './mockProgress';
 import { fromCents, toCents } from '../lib/cents';
 import type {
     AuditEntry, BankTransaction, Run, DecisionRequest, DecisionResponse, DemoResetResponse, ForgetAllRulesResponse, ForgetRuleResponse,
-    GlEntry, Item, ReconStatus, Rule, Statement,
+    GlEntry, Item, RagChatRequest, RagChatResponse, RagChatSource, ReconStatus, Rule, Statement,
 } from './types';
 
 // The fixture's short report is replaced here with the fuller mock one; docs fixtures stay untouched.
@@ -64,12 +64,71 @@ function withItems<R extends { recon_status: ReconStatus; item_id: string | null
     });
 }
 
+function mockRagChat(request: RagChatRequest): RagChatResponse {
+    if (!(datasets as { id: string }[]).some(dataset => dataset.id === request.dataset)) throw notFound('Dataset', 'dataset_not_found');
+    const bank = withItems(bankTransactions as BankTransaction[], row => row.txn_id, 'bank_ids');
+    const gl = withItems(glEntries as GlEntry[], row => row.entry_id, 'gl_ids');
+    const query = request.question.trim().toLocaleLowerCase();
+    const tokens = query.split(/[^a-z0-9]+/).filter(token => token.length > 1);
+    const semanticGroups = [
+        ['fee', 'fees', 'charge', 'charges', 'service', 'maintenance'],
+        ['salary', 'payroll', 'wage', 'wages'],
+        ['deposit', 'receipt', 'credit'],
+        ['rent', 'lease'],
+    ];
+    const expanded = new Set(tokens);
+    for (const group of semanticGroups) if (group.some(word => expanded.has(word))) group.forEach(word => expanded.add(word));
+    const itemById = new Map(items.map(item => [item.id, item]));
+    const candidates: RagChatSource[] = [
+        ...bank.filter(row => (!request.source_type || request.source_type === 'bank_transaction')
+            && (!request.date_from || row.posted_date >= request.date_from)
+            && (!request.date_to || row.posted_date <= request.date_to)
+            && (!request.amount || row.amount === request.amount)
+            && (!request.status || row.recon_status === request.status)
+            && (row.txn_id.toLocaleLowerCase() === query || [...expanded].some(token => `${row.description} ${row.type} ${row.txn_id}`.toLocaleLowerCase().includes(token))))
+            .map(row => ({
+                source_type: 'bank_transaction' as const, source_id: row.txn_id, date: row.posted_date,
+                amount: row.amount, description: row.description, type: row.type, check_number: row.check_number,
+                running_balance: row.running_balance, account: null, counter_account: null, counterparty: null,
+                guardrail: row.guardrail, status: row.recon_status, item: row.item_id ? (itemById.get(row.item_id) ?? null) : null,
+                score: row.txn_id.toLocaleLowerCase() === query ? 0.06 : 0.04,
+                matched_by: row.txn_id.toLocaleLowerCase() === query ? ['exact'] : ['full_text', 'vector'],
+            })),
+        ...gl.filter(row => (!request.source_type || request.source_type === 'gl_entry')
+            && (!request.date_from || row.date >= request.date_from)
+            && (!request.date_to || row.date <= request.date_to)
+            && (!request.amount || row.amount === request.amount)
+            && (!request.status || row.recon_status === request.status)
+            && (row.entry_id.toLocaleLowerCase() === query || [...expanded].some(token => `${row.description} ${row.method} ${row.entry_id} ${row.account}`.toLocaleLowerCase().includes(token))))
+            .map(row => ({
+                source_type: 'gl_entry' as const, source_id: row.entry_id, date: row.date,
+                amount: row.amount, description: row.description, type: row.method, check_number: row.check_number,
+                running_balance: null, account: row.account, counter_account: row.counter_account,
+                counterparty: row.counterparty, guardrail: row.guardrail, status: row.recon_status,
+                item: row.item_id ? (itemById.get(row.item_id) ?? null) : null,
+                score: row.entry_id.toLocaleLowerCase() === query ? 0.06 : 0.04,
+                matched_by: row.entry_id.toLocaleLowerCase() === query ? ['exact'] : ['full_text', 'vector'],
+            })),
+    ].slice(0, 8);
+    const noEvidence = candidates.length === 0;
+    return {
+        message: {
+            role: 'assistant',
+            content: noEvidence
+                ? 'I could not find a matching record in this demo dataset. Try a transaction ID, amount, date, or related description.'
+                : `I found ${candidates.length} related record${candidates.length === 1 ? '' : 's'} in the selected dataset. Review the source cards below for the current transaction and reconciliation status.`,
+        },
+        model: 'bridge-demo-search', sources: candidates, citations: [], no_evidence: noEvidence,
+    };
+}
+
 export async function mockRequest<T>(path: string, { method = 'GET', query = {}, body }: RequestOptions = {}): Promise<T> {
     await delay();
     return copy<T>(route(path, method, query, body));
 }
 
 function route(path: string, method: string, query: Record<string, string | undefined>, body: unknown): unknown {
+    if (method === 'POST' && path === '/chat/ask') return mockRagChat(body as RagChatRequest);
     if (method === 'GET' && path === '/datasets') return datasets;
     if (method === 'GET' && path === '/bank-transactions') return withItems(bankTransactions as BankTransaction[], r => r.txn_id, 'bank_ids').filter(r => inRange(r.posted_date, query.from, query.to));
     if (method === 'GET' && path === '/gl-entries') return withItems(glEntries as GlEntry[], r => r.entry_id, 'gl_ids').filter(r => inRange(r.date, query.from, query.to));

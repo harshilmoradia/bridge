@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useDecideItem } from '../../api/hooks';
 import type { EvidenceRef, Item } from '../../api/types';
 import { buildOverride, validateEntry, type EntryDraft } from '../../lib/entry';
-import { accountName, inTab, isTypingTarget, kindTitle, modelTier, nextSelection, stepSelection, type InboxTab } from '../../lib/inbox';
+import { accountName, focusInboxItem, inTab, isTypingTarget, kindTitle, modelTier, nextSelection, stepSelection, type InboxTab } from '../../lib/inbox';
 import { isNegative } from '../../lib/money';
 import { decisionToastText, learnableReason, notLearnedNote, rulePreview } from '../../lib/rules';
 import { rulesPanel } from '../../lib/rulesPanel';
@@ -286,24 +286,29 @@ interface InboxProps {
     rows: Map<string, TxRow>; // bank and GL rows by id, for guardrail text
     onSelect: (item: Item) => void;
     onEvidence: (item: Item, evidence: EvidenceRef) => void;
+    focusItemId?: string | null;
     footer?: ReactNode; // shown in the empty state, e.g. a report link
 }
 
-export function ApprovalInbox({ items, rows, onSelect, onEvidence, footer }: InboxProps) {
+export function ApprovalInbox({ items, rows, onSelect, onEvidence, focusItemId, footer }: InboxProps) {
     // The mutation lives here, not in the detail: an optimistic update removes the item before the toast would fire.
     const decide = useDecideItem();
-    const [tab, setTab] = useState<InboxTab>('pending');
-    // The chosen id and its position: when a decision removes it, the item now at that position is selected.
-    const [chosen, setChosen] = useState<{ id: string | null; index: number }>({ id: null, index: 0 });
+    const [manualSelection, setManualSelection] = useState<{ id: string | null; index: number; tab: InboxTab }>({ id: null, index: 0, tab: 'pending' });
+    const [dismissedFocusId, setDismissedFocusId] = useState<string | null>(null);
     const [uiById, setUiById] = useState<Record<string, ItemUi>>({});
-
+    const requestedFocus = focusItemId && dismissedFocusId !== focusItemId ? focusInboxItem(items, focusItemId) : null;
+    const activeFocus = requestedFocus && focusItemId ? { id: focusItemId, ...requestedFocus } : null;
+    const tab = activeFocus?.tab ?? manualSelection.tab;
+    // The chosen id and its position: when a decision removes it, the item now at that position is selected.
+    const chosen = activeFocus ? { id: activeFocus.id, index: activeFocus.index } : manualSelection;
     const list = inTab(items, tab);
     const ids = list.map(i => i.id);
     const selectedId = nextSelection(ids, chosen.id, chosen.index);
     const selected = list.find(i => i.id === selectedId) ?? null;
 
     const select = (id: string | null) => {
-        setChosen({ id, index: id ? Math.max(0, ids.indexOf(id)) : 0 });
+        if (focusItemId) setDismissedFocusId(focusItemId);
+        setManualSelection({ id, index: id ? Math.max(0, ids.indexOf(id)) : 0, tab });
         const item = id ? items.find(i => i.id === id) : undefined;
         if (item) onSelect(item);
     };
@@ -357,8 +362,8 @@ export function ApprovalInbox({ items, rows, onSelect, onEvidence, footer }: Inb
             <div className="flex flex-wrap items-center gap-2.5 border-b px-4 py-3">
                 <h2 className="text-sm font-semibold">Approvals</h2>
                 <div role="tablist" aria-label="Item groups" className="flex gap-0.5 rounded-[7px] bg-muted p-[3px]">
-                    {TABS.map(t => (
-                        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => { setTab(t.id); setChosen({ id: null, index: 0 }); }}
+                            {TABS.map(t => (
+                        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => { if (focusItemId) setDismissedFocusId(focusItemId); setManualSelection({ tab: t.id, id: null, index: 0 }); }}
                             className={cn('inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-[12.5px] font-semibold', tab === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
                             {t.label}<span className="font-mono text-[11px] text-faint">{inTab(items, t.id).length}</span>
                         </button>

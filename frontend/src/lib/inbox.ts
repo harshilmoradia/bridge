@@ -11,6 +11,15 @@ const TAB_STATUSES: Record<InboxTab, ReconStatus[]> = {
 
 export const inTab = <T extends Pick<Item, 'status'>>(items: T[], tab: InboxTab) => items.filter(i => TAB_STATUSES[tab].includes(i.status));
 
+export function focusInboxItem(items: Pick<Item, 'id' | 'status'>[], id: string): { tab: InboxTab; index: number } | null {
+    const item = items.find(candidate => candidate.id === id);
+    if (!item) return null;
+    const tab: InboxTab = item.status === 'needs_approval' ? 'pending'
+        : item.status === 'auto_resolved' || item.status === 'reconciling_item' ? 'policy' : 'decided';
+    const index = inTab(items, tab).findIndex(candidate => candidate.id === id);
+    return index < 0 ? null : { tab, index };
+}
+
 const KIND_TITLE: Record<string, string> = {
     exact: 'Exact match',
     timing: 'Timing difference',

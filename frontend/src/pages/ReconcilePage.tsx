@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Play } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,7 +24,11 @@ const field = 'h-8 rounded-md border bg-card px-2 text-[13px] font-medium focus-
 
 function Workspace({ datasets }: { datasets: Dataset[] }) {
     const client = useQueryClient();
-    const [datasetId, setDatasetId] = useState(datasets[0].id);
+    const [searchParams] = useSearchParams();
+    const focusItemId = searchParams.get('itemId');
+    const requestedDataset = searchParams.get('dataset');
+    const initialDatasetId = datasets.find(dataset => dataset.id === requestedDataset)?.id ?? datasets[0].id;
+    const [datasetId, setDatasetId] = useState(initialDatasetId);
     const dataset = datasets.find(d => d.id === datasetId) ?? datasets[0];
     const [range, setRange] = useState<{ from: string; to: string } | null>(null);
     const { from, to } = range ?? defaultRange(dataset);
@@ -136,7 +140,14 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
 
             {runId && (
                 <QueryState query={items}>
-                    {() => <ApprovalInbox items={reviewable} rows={rowsById} onSelect={item => setHighlight(item.id)} onEvidence={onEvidence} footer={report} />}
+                    {() => <>
+                        {focusItemId && !items.data?.some(item => item.id === focusItemId) && (
+                            <p role="status" className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
+                                This review item is no longer available in the selected dataset or latest run.
+                            </p>
+                        )}
+                        <ApprovalInbox items={reviewable} rows={rowsById} onSelect={item => setHighlight(item.id)} onEvidence={onEvidence} focusItemId={focusItemId} footer={report} />
+                    </>}
                 </QueryState>
             )}
 
