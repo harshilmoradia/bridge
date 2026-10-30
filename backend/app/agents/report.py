@@ -8,6 +8,7 @@ the numbers that failed; after that, or when the model is down, code writes `tem
 """
 
 import json
+import logging
 import re
 from collections import Counter
 from collections.abc import Iterator, Sequence
@@ -26,6 +27,7 @@ from app.schemas.reads import Statement, StatementSide
 from app.schemas.runs import RunCounts
 
 ReportSource = Literal["model", "repaired", "template"]
+logger = logging.getLogger(__name__)
 
 # A number as written: an optional "$", the digits (thousands-grouped first, so "48,547.99" reads as
 # one number), then an optional scale ("3k", "2 thousand") that the check always rejects.
@@ -197,15 +199,32 @@ def _messages(facts: dict[str, Any]) -> list[ChatMessage]:
             ChatMessage(role="user", content=json.dumps(facts))]
 
 
-async def write_report(client: LLMClient, facts: dict[str, Any]) -> ReportResult:
+async def write_report(client: LLMClient, facts: dict[str, Any], *, run_id: str | None = None) -> ReportResult:
     """Ultra's report if its numbers check (after at most one repair), else the template."""
     convo = _messages(facts)
     stats: list[CallStats] = []
     bad: list[str] = []
-    for source in ("model", "repaired"):
+    for attempt, source in enumerate(("model", "repaired"), start=1):
         try:
             text, call = await client.complete_text("ultra", convo)
-        except AppError:
+        except AppError as exc:
+            diagnostic_code = exc.diagnostic_code or exc.code
+            logger.warning(
+                "Ultra report request failed; using template fallback "
+                "run_id=%s diagnostic_code=%s error_code=%s error_type=%s attempt=%s",
+                run_id or "unknown",
+                diagnostic_code,
+                exc.code,
+                type(exc).__name__,
+                attempt,
+                extra={
+                    "run_id": run_id,
+                    "diagnostic_code": diagnostic_code,
+                    "error_code": exc.code,
+                    "error_type": type(exc).__name__,
+                    "report_attempt": attempt,
+                },
+            )
             break
         stats.append(call)
         bad = unsupported_numbers(text, facts)

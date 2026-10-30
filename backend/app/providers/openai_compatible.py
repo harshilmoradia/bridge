@@ -62,16 +62,17 @@ class OpenAICompatibleProvider:
             async with httpx.AsyncClient(timeout=timeout or self.timeout) as client:
                 response = await client.post(url, json=payload, headers=headers)
         except httpx.TimeoutException as exc:
-            raise LLMUnavailableError("LLM request timed out") from exc
+            raise LLMUnavailableError("LLM request timed out", diagnostic_code="request_timeout") from exc
         except httpx.RequestError as exc:
             logger.warning("LLM request failed: %s", type(exc).__name__)
-            raise LLMUnavailableError("Unable to reach LLM provider") from exc
+            raise LLMUnavailableError("Unable to reach LLM provider", diagnostic_code="connection_error") from exc
 
         if response.status_code >= 500:
-            raise LLMUnavailableError("LLM provider is unavailable")
+            raise LLMUnavailableError("LLM provider is unavailable", diagnostic_code="provider_server_error")
         if response.status_code >= 400:
             raise LLMUpstreamError(
-                f"LLM provider rejected the request ({response.status_code})"
+                f"LLM provider rejected the request ({response.status_code})",
+                diagnostic_code=f"provider_http_{response.status_code}",
             )
 
         try:
@@ -86,13 +87,15 @@ class OpenAICompatibleProvider:
             returned_model = data.get("model") or used_model
             usage = data.get("usage") or {}
         except (KeyError, IndexError, TypeError, ValueError, ValidationError) as exc:
-            raise LLMUpstreamError("LLM upstream returned an unexpected response") from exc
+            raise LLMUpstreamError("LLM upstream returned an unexpected response",
+                                   diagnostic_code="invalid_provider_response") from exc
 
         # Tool-call turns may carry null content; anything else must be text.
         if content is None and tool_calls:
             content = ""
         if not isinstance(content, str):
-            raise LLMUpstreamError("LLM upstream returned an unexpected response")
+            raise LLMUpstreamError("LLM upstream returned an unexpected response",
+                                   diagnostic_code="invalid_provider_response")
 
         return Completion(
             content=content,
