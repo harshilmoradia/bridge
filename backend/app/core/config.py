@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
+    rag_embedding_api_key: str = ""
+    rag_embedding_base_url: str = "https://api.tokenfactory.nebius.com/v1"
+    rag_embedding_model: str = "Qwen/Qwen3-Embedding-8B"
+    rag_embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    rag_index_batch_size: int = Field(default=32, ge=1, le=64)
+    rag_index_lease_seconds: int = Field(default=900, ge=60, le=3600)
     supabase_url: str = ""
     supabase_publishable_key: str = ""
 
@@ -55,6 +61,33 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_URL must be a project origin")
         if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")):
             raise ValueError("SUPABASE_URL must use HTTPS (HTTP is allowed only for local development)")
+        return value
+
+    @field_validator("rag_embedding_base_url")
+    @classmethod
+    def validate_rag_embedding_base_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        parsed = urlparse(value)
+        if (parsed.username or parsed.password or parsed.query or parsed.fragment
+                or parsed.path not in ("", "/v1") or not parsed.hostname):
+            raise ValueError("RAG_EMBEDDING_BASE_URL must be an API origin, optionally ending in /v1")
+        if parsed.scheme != "https" and not (
+            parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
+        ):
+            raise ValueError("RAG_EMBEDDING_BASE_URL must use HTTPS")
+        return value
+
+    @field_validator("rag_embedding_model")
+    @classmethod
+    def validate_rag_embedding_model(cls, value: str) -> str:
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("RAG_EMBEDDING_MODEL must be a non-empty model id without whitespace")
+        if value != "Qwen/Qwen3-Embedding-8B":
+            raise ValueError(
+                "RAG_EMBEDDING_MODEL must match the verified Nebius model; "
+                "changing models requires validation against the vector schema"
+            )
         return value
 
     # Supabase transaction pooler (port 6543). Backend only.
