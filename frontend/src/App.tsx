@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Route, Routes } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthGate } from './components/AuthGate';
 import { AppLayout } from './components/AppLayout';
@@ -10,6 +10,7 @@ import { ReconcilePage } from './pages/ReconcilePage';
 import { Skeleton } from './components/ui/skeleton';
 
 const EvalsPage = lazy(() => import('./pages/EvalsPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 export default function App() {
     return (
@@ -18,9 +19,9 @@ export default function App() {
                 {(identity, signOut, signingOut, signIn) => (
                     <BrowserRouter key={identity.id}>
                         <Routes>
+                            <Route index element={<Suspense fallback={null}><LandingPage onSignIn={signIn} /></Suspense>} />
                             <Route element={<AppLayout key={identity.id} userName={identity.displayName} userEmail={identity.email} isDemo={identity.isDemo}
                                 signOut={() => void signOut()} signingOut={signingOut} onSignIn={signIn} />}>
-                                <Route index element={<Navigate to="/reconcile" replace />} />
                                 <Route path="reconcile" element={<ReconcilePage />} />
                                 <Route path="bank" element={<BankPage />} />
                                 <Route path="ledger" element={<LedgerPage />} />
