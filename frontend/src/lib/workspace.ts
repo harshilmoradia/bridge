@@ -41,3 +41,13 @@ export function interpolateMoney(from: string, to: string, t: number): string {
 
 // The Reconcile date range defaults to the selected dataset's period, so run, statement and report agree.
 export const defaultRange = (d: { period_start: string; period_end: string }) => ({ from: d.period_start, to: d.period_end });
+
+// Share of the raw difference closed so far, 0 to 100, for the progress meter. A zero raw difference counts as fully closed.
+export function closedPercent(raw: string, unreconciled: string): number {
+    const abs = (c: bigint) => (c < 0n ? -c : c);
+    const total = abs(toCents(raw));
+    if (total === 0n) return 100;
+    const left = abs(toCents(unreconciled));
+    if (left >= total) return 0;
+    return Number(((total - left) * 100n) / total);
+}

@@ -12,11 +12,11 @@ import { bankToRow, glToRow } from '../lib/tableModel';
 
 export function Page({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: ReactNode; children?: ReactNode }) {
     return (
-        <section className="space-y-4">
-            <header className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-                    {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        <section className="space-y-[18px]">
+            <header className="flex flex-wrap items-end justify-between gap-3">
+                <div className="min-w-0">
+                    <h1 className="text-[22px] font-semibold tracking-tight text-balance">{title}</h1>
+                    {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
                 </div>
                 {actions}
             </header>
