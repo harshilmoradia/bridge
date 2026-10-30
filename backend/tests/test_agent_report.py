@@ -113,6 +113,29 @@ async def test_a_model_outage_falls_back_to_the_template():
     assert (out.source, out.markdown, out.stats) == ("template", template_report(f), [])
 
 
+async def test_report_fallback_logs_safe_provider_diagnostics(caplog):
+    import logging
+
+    client, _ = client_for(Writer(
+        LLMUnavailableError("private provider detail", diagnostic_code="request_timeout"),
+        LLMUnavailableError("private provider detail", diagnostic_code="request_timeout"),
+    ))
+
+    with caplog.at_level(logging.WARNING, logger="app.agents.report"):
+        result = await write_report(client, facts(), run_id="run-diagnostic-1")
+
+    assert result.source == "template"
+    record = next(r for r in caplog.records if "Ultra report request failed" in r.getMessage())
+    assert record.run_id == "run-diagnostic-1"
+    assert record.diagnostic_code == "request_timeout"
+    assert record.error_code == "llm_unavailable"
+    assert record.error_type == "LLMUnavailableError"
+    assert record.report_attempt == 1
+    assert "diagnostic_code=request_timeout" in record.getMessage()
+    assert "run_id=run-diagnostic-1" in record.getMessage()
+    assert "private provider detail" not in caplog.text
+
+
 # Number words and scale words: the check cannot be passed by spelling a number out.
 
 def test_a_spelled_out_scale_is_unsupported():

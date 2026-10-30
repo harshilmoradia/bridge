@@ -12,26 +12,29 @@ class AppError(Exception):
         code: str,
         message: str,
         status_code: int = 500,
+        diagnostic_code: str | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.status_code = status_code
+        self.diagnostic_code = diagnostic_code
         super().__init__(message)
 
 
 class LLMUnavailableError(AppError):
-    def __init__(self, message: str = "LLM provider is unavailable") -> None:
-        super().__init__(code="llm_unavailable", message=message, status_code=503)
+    def __init__(self, message: str = "LLM provider is unavailable", *, diagnostic_code: str = "provider_unavailable") -> None:
+        super().__init__(code="llm_unavailable", message=message, status_code=503, diagnostic_code=diagnostic_code)
 
 
 class LLMUpstreamError(AppError):
-    def __init__(self, message: str = "LLM upstream returned an unexpected response") -> None:
-        super().__init__(code="llm_upstream_error", message=message, status_code=502)
+    def __init__(self, message: str = "LLM upstream returned an unexpected response", *, diagnostic_code: str = "invalid_provider_response") -> None:
+        super().__init__(code="llm_upstream_error", message=message, status_code=502, diagnostic_code=diagnostic_code)
 
 
 class LLMInvalidOutputError(AppError):
     def __init__(self, message: str = "LLM output did not match the expected schema") -> None:
-        super().__init__(code="llm_invalid_output", message=message, status_code=502)
+        super().__init__(code="llm_invalid_output", message=message, status_code=502,
+                         diagnostic_code="invalid_model_output")
 
 
 def _error_body(code: str, message: str) -> dict[str, Any]:

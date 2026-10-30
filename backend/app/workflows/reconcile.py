@@ -390,7 +390,7 @@ async def reconcile_run(ctx: inngest.Context) -> dict[str, Any]:
             refs = item_refs(await store.list_items(run_id))
             run = await store.get_run(run_id)
             facts = report_facts(build_statement(data, run_id, refs), run.counts, refs)
-            out = await write_report(get_llm_client(get_settings()), facts)
+            out = await write_report(get_llm_client(get_settings()), facts, run_id=run_id)
             # The row first: if it cannot be written, the report is not saved either, so a
             # failed step never sits beside a saved model report.
             await store.save_steps(run_id, [report_row(out, started, _now())])

@@ -79,15 +79,17 @@ async def test_missing_or_malformed_usage_is_zero(transport, usage) -> None:
 @pytest.mark.parametrize("status", [400, 401, 422])
 async def test_4xx_is_upstream_error(transport, status) -> None:
     transport["handler"] = lambda _r: httpx.Response(status, json={"error": "no"})
-    with pytest.raises(LLMUpstreamError):
+    with pytest.raises(LLMUpstreamError) as err:
         await provider().generate(MSGS)
+    assert err.value.diagnostic_code == f"provider_http_{status}"
 
 
 @pytest.mark.parametrize("status", [500, 502, 503])
 async def test_5xx_is_unavailable(transport, status) -> None:
     transport["handler"] = lambda _r: httpx.Response(status)
-    with pytest.raises(LLMUnavailableError):
+    with pytest.raises(LLMUnavailableError) as err:
         await provider().generate(MSGS)
+    assert err.value.diagnostic_code == "provider_server_error"
 
 
 async def test_httpx_timeout_is_unavailable(transport) -> None:
@@ -95,8 +97,9 @@ async def test_httpx_timeout_is_unavailable(transport) -> None:
         raise httpx.ReadTimeout("slow", request=request)
 
     transport["handler"] = handler
-    with pytest.raises(LLMUnavailableError):
+    with pytest.raises(LLMUnavailableError) as err:
         await provider().generate(MSGS)
+    assert err.value.diagnostic_code == "request_timeout"
 
 
 async def test_complete_still_returns_message_and_model(transport) -> None:

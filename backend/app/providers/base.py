@@ -81,7 +81,8 @@ def get_llm_provider(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "openai_compatible":
         if not settings.llm_api_key.strip():
             raise LLMUnavailableError(
-                "LLM_API_KEY is required when LLM_PROVIDER=openai_compatible"
+                "LLM_API_KEY is required when LLM_PROVIDER=openai_compatible",
+                diagnostic_code="missing_api_key",
             )
         from app.providers.openai_compatible import OpenAICompatibleProvider
 
@@ -91,4 +92,4 @@ def get_llm_provider(settings: Settings) -> LLMProvider:
             default_model=settings.llm_model,
         )
 
-    raise LLMUnavailableError(f"Unsupported LLM provider: {settings.llm_provider}")
+    raise LLMUnavailableError("Unsupported LLM provider configuration", diagnostic_code="unsupported_provider")
