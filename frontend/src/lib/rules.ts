@@ -58,7 +58,54 @@ export function applyRules(items: Item[], rules: LearnedRule[]): Item[] {
             ...item, status: 'auto_resolved', resolution: 'auto_resolve', flags: [...item.flags, 'rule_applied'], rule_id: rule.id,
             reasoning: `Auto-resolved by rule #${rule.id}, which you approved earlier.`,
             evidence: [...item.evidence.filter(e => e.type !== 'policy'), { type: 'rule', id: String(rule.id), note: null }],
-            proposed_entry: item.proposed_entry ? { ...item.proposed_entry, status: 'posted' } : null,
+            proposed_entry: item.proposed_entry ? { ...item.proposed_entry, status: 'posted' } : null, learnable: false,
         };
     });
+}
+
+/**
+ * Mock only: mirrors the backend's rule for `Item.learnable`. An open item can teach a rule when it has a draft
+ * entry, bank or GL text to take a pattern from, a kind rules may close, and no injection flag.
+ */
+export const mockLearnable = (item: Pick<Item, 'status' | 'kind' | 'flags' | 'proposed_entry' | 'bank_ids' | 'gl_ids'>): boolean =>
+    item.status === 'needs_approval' && item.proposed_entry !== null && !NEVER_BY_RULE.has(item.kind)
+    && !item.flags.includes('injection_flagged') && item.bank_ids.length + item.gl_ids.length > 0;
+
+// ---- Remember-rule UI (U-12) ----
+
+export const isSeeded = (rule: Pick<Rule, 'origin'>) => rule.origin === 'seeded';
+export const learnedOnly = <R extends Pick<Rule, 'origin'>>(rules: R[]): R[] => rules.filter(r => !isSeeded(r));
+
+const ONE_OFF_KINDS = new Set(['duplicate_gl_entry', 'transposition']);
+
+/** Why the remember switch is off for this item, or null when it can learn. The backend's `learnable` is the source of truth. */
+export function learnableReason(item: Pick<Item, 'learnable' | 'kind' | 'flags' | 'proposed_entry'>): string | null {
+    if (item.learnable) return null;
+    if (item.flags.includes('injection_flagged')) return 'Flagged text never becomes a rule.';
+    if (isRuleApplied(item)) return 'A rule already covers this item.';
+    if (ONE_OFF_KINDS.has(item.kind)) return "Duplicates and transpositions are one-off corrections, so Bridge won't learn a rule from them.";
+    if (item.kind === 'unidentified_receipt') return "An unidentified receipt has no known payer to match next time, so Bridge won't learn a rule from it.";
+    if (item.kind === 'unknown') return "Bridge couldn't tell what this item is, so there is no pattern to learn.";
+    if (!item.proposed_entry) return "There's no journal entry to repeat, so there is nothing to learn.";
+    return "This item has no bank or ledger text to match next time, so Bridge won't learn a rule from it.";
+}
+
+export interface RulePreview { kind: string; direction: 'in' | 'out'; debit: string; credit: string; amount: string }
+
+/** What remembering would save: kind, direction (sign of the item's delta), and the entry's accounts and amount (decimal strings, untouched). */
+export function rulePreview(item: Pick<Item, 'kind' | 'amount_delta'>, entry: { debit_account: string; credit_account: string; amount: string } | null): RulePreview | null {
+    if (!entry) return null;
+    return { kind: item.kind, direction: signOf(item.amount_delta) === -1 ? 'out' : 'in', debit: entry.debit_account, credit: entry.credit_account, amount: entry.amount };
+}
+
+/** Toast after a decision. Claims a saved rule only when the response carries its id. */
+export function decisionToastText(title: string, decision: 'approve' | 'reject', ruleId: number | null): string {
+    const base = `${title} ${decision === 'approve' ? 'approved' : 'rejected'}`;
+    return ruleId !== null ? `${base} · Rule #${ruleId} saved` : base;
+}
+
+/** Extra line when the reviewer asked to remember but no rule came back. */
+export function notLearnedNote(remember: boolean, decision: 'approve' | 'reject', ruleId: number | null): string | null {
+    if (!remember || ruleId !== null) return null;
+    return decision === 'reject' ? 'Rejections never become rules.' : 'No rule was saved for this item.';
 }

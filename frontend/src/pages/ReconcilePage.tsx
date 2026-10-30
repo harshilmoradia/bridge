@@ -11,6 +11,7 @@ import { QueryState } from '../components/QueryState';
 import { StatementCard } from '../components/StatementCard';
 import { KpiStrip } from '../components/recon/KpiStrip';
 import { ResetDemoButton } from '../components/recon/ResetDemoButton';
+import { LearnedRulesButton } from '../components/LearnedRules';
 import { RunPipeline } from '../components/recon/RunPipeline';
 import { TransactionTable } from '../components/recon/TransactionTable';
 import { Button } from '../components/ui/button';
@@ -107,6 +108,7 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
             <label className="flex flex-col gap-0.5 text-[11px] text-faint">To
                 <input type="date" className={field} value={to} min={from} disabled={running} onChange={e => e.target.value && setRange({ from, to: e.target.value })} />
             </label>
+            <LearnedRulesButton />
             <ResetDemoButton disabled={running} onReset={() => { setDismissedRunId(runId ?? null); setStartedRunId(null); setHighlight(null); lastSignature.current = null; refreshedRunId.current = null; }} />
             <Button size="lg" className="px-4 font-semibold" disabled={running} onClick={start}><Play className="fill-current" aria-hidden="true" />{running ? 'Running…' : 'Run agents'}</Button>
         </div>
