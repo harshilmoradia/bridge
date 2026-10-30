@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import type { ReconStatus } from '../../api/types';
 
-const field = 'h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const field = 'h-8 rounded-md border bg-card px-2 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const STATUSES = Object.keys(STATUS_LABEL) as ReconStatus[];
 
 const COLUMNS: { key: SortKey; label: string; align?: 'right' }[] = [
@@ -57,22 +57,22 @@ export function TransactionTable({ rows, typeLabel = 'Type', selectable = true, 
     const sortBy = (key: SortKey) => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
 
     return (
-        <div className="space-y-3">
-            <div className="flex flex-wrap items-end gap-3" role="search">
+        <div>
+            <div className="flex flex-wrap items-end gap-2 border-b px-3 py-2.5" role="search">
                 <input type="search" aria-label="Search" placeholder="Search description, amount, id..." value={filters.search}
-                    onChange={e => set({ search: e.target.value })} className={cn(field, 'w-64')} />
-                <label className="flex flex-col text-xs text-muted-foreground">From
+                    onChange={e => set({ search: e.target.value })} className={cn(field, 'w-full max-w-60')} />
+                <label className="flex flex-col gap-0.5 text-[11px] text-faint">From
                     <input type="date" value={filters.from} max={filters.to || undefined} onChange={e => set({ from: e.target.value })} className={field} />
                 </label>
-                <label className="flex flex-col text-xs text-muted-foreground">To
+                <label className="flex flex-col gap-0.5 text-[11px] text-faint">To
                     <input type="date" value={filters.to} min={filters.from || undefined} onChange={e => set({ to: e.target.value })} className={field} />
                 </label>
-                <label className="flex flex-col text-xs text-muted-foreground">{typeLabel}
+                <label className="flex flex-col gap-0.5 text-[11px] text-faint">{typeLabel}
                     <select value={filters.type} onChange={e => set({ type: e.target.value })} className={field}>
                         <option value="">All</option>{types.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                 </label>
-                <label className="flex flex-col text-xs text-muted-foreground">Status
+                <label className="flex flex-col gap-0.5 text-[11px] text-faint">Status
                     <select value={filters.status} onChange={e => set({ status: e.target.value })} className={field}>
                         <option value="">All</option>{STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                     </select>
@@ -83,9 +83,9 @@ export function TransactionTable({ rows, typeLabel = 'Type', selectable = true, 
                 </p>
             </div>
 
-            <div className="max-h-[70vh] overflow-auto rounded-lg border">
+            <div className="max-h-[70vh] overflow-auto">
                 <table className="w-full caption-bottom text-sm">
-                    <thead className="sticky top-0 z-10 bg-muted text-left shadow-[0_1px_0_var(--color-border)]">
+                    <thead className="sticky top-0 z-10 bg-card text-left shadow-[0_1px_0_var(--color-border)]">
                         <tr>
                             {selectable && (
                                 <th className="w-10 px-2">
@@ -96,9 +96,9 @@ export function TransactionTable({ rows, typeLabel = 'Type', selectable = true, 
                                 const active = sort.key === col.key;
                                 const Icon = !active ? ArrowUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
                                 return (
-                                    <th key={col.key} className={cn('h-10 px-2 font-medium', col.align === 'right' && 'text-right')}
+                                    <th key={col.key} className={cn('h-9 px-3 text-[11px] font-semibold tracking-wide uppercase', col.align === 'right' && 'text-right')}
                                         aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                                        <button type="button" onClick={() => sortBy(col.key)} className={cn('inline-flex items-center gap-1 hover:text-foreground', !active && 'text-muted-foreground')}>
+                                        <button type="button" onClick={() => sortBy(col.key)} className={cn('inline-flex items-center gap-1 uppercase hover:text-foreground', active ? 'text-foreground' : 'text-faint')}>
                                             {col.label}<Icon className="size-3" aria-hidden="true" />
                                         </button>
                                     </th>
@@ -111,23 +111,23 @@ export function TransactionTable({ rows, typeLabel = 'Type', selectable = true, 
                             <tr key={r.id} data-row-id={r.id} aria-selected={selected.has(r.id)} onClick={() => onRowClick?.(r)}
                                 tabIndex={onRowClick ? 0 : undefined}
                                 onKeyDown={onRowClick ? e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onRowClick(r); } } : undefined}
-                                className={cn('border-t hover:bg-muted/50', onRowClick && 'cursor-pointer',
-                                    selected.has(r.id) && 'bg-muted/70', highlightItemId && r.itemId === highlightItemId && 'bg-primary/10')}>
+                                className={cn('border-t transition-colors hover:bg-muted', onRowClick && 'cursor-pointer',
+                                    selected.has(r.id) && 'bg-muted', highlightItemId && r.itemId === highlightItemId && 'bg-primary-soft shadow-[inset_3px_0_0_var(--primary)] hover:bg-primary-soft')}>
                                 {selectable && (
                                     <td className="px-2" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox" aria-label={`Select ${r.id}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                                     </td>
                                 )}
-                                <td className="whitespace-nowrap p-2 tabular-nums">{r.date}</td>
+                                <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-muted-foreground">{r.date}</td>
                                 {/* Descriptions are untrusted text: rendered as text only, never HTML. */}
-                                <td className="max-w-md p-2">
+                                <td className="max-w-md px-3 py-2">
                                     <span className="line-clamp-2">{r.description}</span>
-                                    <span className="text-xs text-muted-foreground">{r.id}{r.extra && ` · ${r.extra}`}</span>
+                                    <span className="block font-mono text-[11px] text-faint">{r.id}{r.extra && ` · ${r.extra}`}</span>
                                     <GuardrailCallouts guardrail={r.guardrail} original={r.original} />
                                 </td>
-                                <td className="p-2">{r.type}</td>
-                                <td className="p-2 text-right"><Money value={r.amount} /></td>
-                                <td className="p-2"><StatusChip status={r.status} /></td>
+                                <td className="px-3 py-2 text-[13px] text-muted-foreground">{r.type}</td>
+                                <td className="whitespace-nowrap px-3 py-2 text-right"><Money value={r.amount} /></td>
+                                <td className="px-3 py-2"><StatusChip status={r.status} /></td>
                             </tr>
                         ))}
                     </tbody>

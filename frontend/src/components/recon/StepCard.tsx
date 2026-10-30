@@ -6,9 +6,9 @@ import { formatLatency, formatTokens, STEP_STATUS_LABEL, stepDetail } from '../.
 
 const TIER_CLASS: Record<ModelTier, string> = {
     code: 'bg-muted text-muted-foreground',
-    nano: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-    super: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
-    ultra: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    nano: 'bg-good-soft text-tier-nano',
+    super: 'bg-primary-soft text-tier-super',
+    ultra: 'bg-violet-soft text-tier-ultra',
 };
 
 function StatusIcon({ status }: { status: StepStatus }) {
