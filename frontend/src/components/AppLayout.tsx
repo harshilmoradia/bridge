@@ -4,6 +4,7 @@ import { NavLink, Outlet } from 'react-router';
 import { useDatasets } from '../api/hooks';
 import { useTheme } from '../context/theme';
 import { cn } from '../lib/utils';
+import { LearnedRulesSheet } from './LearnedRules';
 import { Button } from './ui/button';
 
 const NAV: { to: string; icon: LucideIcon; label: string }[] = [
@@ -87,6 +88,7 @@ export function AppLayout({ userName, userEmail, isDemo, signOut, signingOut, on
                     </div>
                 </main>
             </div>
+            <LearnedRulesSheet />
         </div>
     );
 }

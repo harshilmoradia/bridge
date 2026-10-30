@@ -9,14 +9,16 @@ from fastapi import APIRouter, Depends, Query
 from app.api.auth import AuthContext, get_user_or_demo
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.recon.decisions import override_problems
+from app.recon.decisions import override_problems, save_rule, with_learnable
+from app.recon.models import Dataset
 from app.recon.run_store import RunStore, get_run_store
 from app.recon.statement import build_statement
 from app.recon.store import read_store, run_not_found
 from app.schemas.common import ApiError, ItemStatus
 from app.guardrails import mask_pii
 from app.schemas.runs import (
-    AuditEntry, CreateRunRequest, CreateRunResponse, DecisionRequest, DecisionResponse, Item, Run, Rule,
+    AuditEntry, CreateRunRequest, CreateRunResponse, DecisionRequest, DecisionResponse, Item, Rule,
+    RuleForgotten, RulesForgotten, Run,
 )
 from app.workflows.client import inngest_client
 from app.workflows.item_decided import ITEM_DECIDED, ItemDecided, record_decided
@@ -72,9 +74,18 @@ async def list_run_items(
     run_id: str,
     status: ItemStatus | None = Query(default=None, description="Only items with this status"),
     store: RunStore = Depends(run_store),
+    settings: Settings = Depends(get_settings),
 ) -> list[Item]:
-    await _run(store, run_id)
-    return await store.list_items(run_id, status)
+    run = await _run(store, run_id)
+    dataset = await _dataset(settings, run.dataset)
+    return with_learnable(await store.list_items(run_id, status), dataset)
+
+
+async def _dataset(settings: Settings, dataset_id: str) -> Dataset:
+    dataset = await read_store(settings).dataset(dataset_id)
+    if dataset is None:
+        raise AppError(code="dataset_not_found", message=f"Dataset {dataset_id} does not exist", status_code=404)
+    return dataset
 
 
 # Free text a person typed into an audited action. Everything else in `detail` is ids, counts,
@@ -117,21 +128,23 @@ async def decide_item(
     item, decision_id = await store.decide_item(
         item_id, decision=body.decision, actor=f"user:{auth.user.email}", note=body.note,
         remember=body.remember, override=override)
+    # The audit comes first, so a failure below (dataset, rule) never leaves a decision unaudited.
     event = ItemDecided(item_id=item.id, decision_id=decision_id, run_id=item.run_id)
     try:
         await inngest_client.send(inngest.Event(name=ITEM_DECIDED, data=event.model_dump()))
     except Exception:
-        # The decision is already saved; write its audit row (and rule) here instead of losing them.
+        # The decision is already saved; write its audit row here instead of losing it.
         log.exception("could not send %s for item %s; recording inline", ITEM_DECIDED, item.id)
         await record_decided(store, event)
 
     run = await _run(store, item.run_id)
-    reads = read_store(settings)
-    dataset = await reads.dataset(run.dataset)
-    if dataset is None:
-        raise AppError(code="dataset_not_found", message=f"Dataset {run.dataset} does not exist", status_code=404)
-    run_items = await reads.run_items(run.dataset, run.id)
-    return DecisionResponse(item=item, statement=build_statement(dataset, run.id, run_items.items))
+    dataset = await _dataset(settings, run.dataset)
+    # Saved here, not in item-decided, so the response tells the reviewer whether a rule was saved.
+    rule_id = await save_rule(store, dataset, item_id=item.id, decision_id=decision_id)
+
+    run_items = await read_store(settings).run_items(run.dataset, run.id)
+    (item,) = with_learnable([item], dataset)
+    return DecisionResponse(item=item, statement=build_statement(dataset, run.id, run_items.items), rule_id=rule_id)
 
 
 @router.get("/rules", response_model=list[Rule])
@@ -141,3 +154,31 @@ async def list_rules(
     """The configured dataset's active rules, oldest first. A pattern holds screened words, a direction
     and at most a business counterparty, never a person's name (`agents/rules.row_pattern`)."""
     return await store.list_rules(settings.dataset)
+
+
+@router.delete("/rules/{rule_id}", response_model=RuleForgotten)
+async def forget_rule(
+    rule_id: int,
+    auth: AuthContext = Depends(get_user_or_demo),
+    store: RunStore = Depends(run_store),
+    settings: Settings = Depends(get_settings),
+) -> RuleForgotten:
+    """Forget one learned rule of the configured dataset; later runs escalate what it closed."""
+    origin = await store.delete_rule(settings.dataset, rule_id, actor=f"user:{auth.user.email}")
+    if origin is None:
+        raise AppError(code="rule_not_found", message=f"Rule {rule_id} does not exist", status_code=404)
+    if origin == "seeded":
+        raise AppError(code="rule_not_deletable", message=f"Rule {rule_id} is seeded, not learned",
+                       status_code=409)
+    return RuleForgotten(rule_id=rule_id)
+
+
+@router.delete("/rules", response_model=RulesForgotten)
+async def forget_rules(
+    auth: AuthContext = Depends(get_user_or_demo),
+    store: RunStore = Depends(run_store),
+    settings: Settings = Depends(get_settings),
+) -> RulesForgotten:
+    """Forget every learned rule of the configured dataset. Seeded rules stay."""
+    return RulesForgotten(rules_deleted=await store.delete_learned_rules(
+        settings.dataset, actor=f"user:{auth.user.email}"))

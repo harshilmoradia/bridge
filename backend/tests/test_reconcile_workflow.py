@@ -521,3 +521,29 @@ def test_a_failing_rules_applied_step_leaves_the_run_completed(monkeypatch):
     run = asyncio.run(store.get_run(run_id))
     assert run.status == "completed" and run.counts.needs_approval == 5
     get_settings.cache_clear()
+
+
+class NanoAndCriticDown(Oracle):
+    def __call__(self, messages, model):
+        from app.core.errors import LLMUnavailableError
+        from tests.test_agents_pipeline import agent
+
+        if model == "m-nano" or agent(messages) in ("critic", "classify"):
+            raise LLMUnavailableError("model timed out")
+        return super().__call__(messages, model)
+
+
+def test_a_stage_whose_every_model_call_failed_is_failed_but_the_run_completes(store, monkeypatch):
+    _use_model(monkeypatch, NanoAndCriticDown())
+    run_id = _new_run(store)
+
+    result = _trigger(run_id)
+
+    assert result.status is mocked.Status.COMPLETED, result.error
+    run = asyncio.run(store.get_run(run_id))
+    assert run.status == "completed"
+    steps = {s.id: s for s in run.steps}
+    for stage in ("match-fuzzy", "classify", "review"):
+        assert (steps[stage].status, steps[stage].error.code) == ("failed", "model_unavailable"), stage
+    assert "fell back" in steps["match-fuzzy"].error.message
+    assert steps["resolve"].status == "completed" and steps["resolve"].error is None

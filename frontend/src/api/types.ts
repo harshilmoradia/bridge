@@ -74,21 +74,29 @@ export interface Item {
     bank_ids: string[]; gl_ids: string[]; amount_delta: Money; reasoning: string; evidence: EvidenceRef[];
     flags: string[]; model: string | null; confidence: number | null; rule_id: number | null;
     proposed_entry: ProposedEntry | null; created_at: string;
+    // True only when approving with "remember" would save a rule (U-12 / B-14).
+    learnable: boolean;
 }
 
 export interface DecisionRequest {
     decision: 'approve' | 'reject'; entry_override?: Partial<Pick<ProposedEntry, 'debit_account' | 'credit_account' | 'amount' | 'memo'>>;
     remember: boolean; note: string | null;
 }
-export interface DemoResetResponse { dataset: string; runs_deleted: number; rules_deleted: number }
+// Reset keeps learned rules (B-14); rules_kept is how many learned rules survive it.
+export interface DemoResetResponse { dataset: string; runs_deleted: number; rules_kept: number }
 
-export interface DecisionResponse { item: Item; statement: Statement }
+// rule_id: the rule this decision saved, or null when nothing was learned.
+export interface DecisionResponse { item: Item; statement: Statement; rule_id: number | null }
 
 export interface Rule {
     id: number; kind: string; pattern: Record<string, unknown>; action: Record<string, unknown>;
     source_item: string | null; created_by: string; active: boolean; created_at: string;
-    dataset?: string | null; origin?: string | null;
+    // Seeded rules can't be forgotten (DELETE gives 409 rule_not_deletable). A missing origin is treated as learned.
+    dataset?: string | null; origin?: 'learned' | 'seeded' | null;
 }
+
+export interface ForgetRuleResponse { rule_id: number }
+export interface ForgetAllRulesResponse { rules_deleted: number }
 
 export interface RangeParams { dataset: string; from?: string; to?: string }
 

@@ -5,13 +5,23 @@
     "kind": "bank_fee_missing_in_gl",
     "resolution": "escalate",
     "status": "approved",
-    "bank_ids": ["BANK032"],
+    "bank_ids": [
+      "BANK032"
+    ],
     "gl_ids": [],
     "amount_delta": "-25.00",
     "reasoning": "The bank charged a 25.00 monthly service fee on Oct 3 that is not in the GL. Policy always escalates bank fees.",
     "evidence": [
-      {"type": "bank_transaction", "id": "BANK032", "note": "MONTHLY SERVICE FEE"},
-      {"type": "policy", "id": "always_escalate_kinds", "note": null}
+      {
+        "type": "bank_transaction",
+        "id": "BANK032",
+        "note": "MONTHLY SERVICE FEE"
+      },
+      {
+        "type": "policy",
+        "id": "always_escalate_kinds",
+        "note": null
+      }
     ],
     "flags": [],
     "model": "nvidia/nemotron-3-super-120b-a12b",
@@ -25,7 +35,8 @@
       "memo": "Record October monthly service fee",
       "status": "approved"
     },
-    "created_at": "2026-10-26T15:00:56Z"
+    "created_at": "2026-10-26T15:00:56Z",
+    "learnable": false
   },
   "statement": {
     "dataset": "northbrook-2026-10",
@@ -50,7 +61,9 @@
           "amount": "-25.00",
           "status": "approved",
           "applied": true,
-          "bank_ids": ["BANK032"],
+          "bank_ids": [
+            "BANK032"
+          ],
           "gl_ids": []
         },
         {
@@ -60,12 +73,15 @@
           "amount": "12.50",
           "status": "needs_approval",
           "applied": false,
-          "bank_ids": ["BANK042"],
+          "bank_ids": [
+            "BANK042"
+          ],
           "gl_ids": []
         }
       ],
       "adjusted_balance": "47658.90"
     },
     "unreconciled_difference": "889.09"
-  }
+  },
+  "rule_id": null
 }

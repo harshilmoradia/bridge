@@ -23,7 +23,7 @@ export function withQuery(path: string, query?: Query): string {
     return text ? `${path}?${text}` : path;
 }
 
-export interface RequestOptions { method?: 'GET' | 'POST'; query?: Query; body?: unknown; signal?: AbortSignal }
+export interface RequestOptions { method?: 'GET' | 'POST' | 'DELETE'; query?: Query; body?: unknown; signal?: AbortSignal }
 
 // Errors from the backend look like {"detail": {"code", "message"}}.
 async function toApiError(response: Response): Promise<ApiError> {

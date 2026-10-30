@@ -200,12 +200,17 @@ def run_counts(dataset: Dataset, items: Sequence[Item]) -> RunCounts:
 
 def _finished(log_: StepLog, started: datetime, finished: datetime, wall_ms: int) -> RunStep:
     # LLM stages carry their summed call latency; code stages their own wall time and no tokens.
+    # A stage whose every model call failed is failed, like a template report: its rows still
+    # went on with code defaults, so the run completes, but the stepper must not show it green.
     llm = log_.tier != "code"
+    dead = log_.failed_calls > 0 and log_.calls == 0
+    error = ApiError(code="model_unavailable", message=(
+        f"All {log_.failed_calls} model calls failed; rows fell back to code defaults")) if dead else None
     return _step(
-        log_.id, "completed", model=log_.model, started_at=started, finished_at=finished,
+        log_.id, "failed" if dead else "completed", model=log_.model, started_at=started, finished_at=finished,
         latency_ms=log_.latency_ms if llm else wall_ms,
         tokens_in=log_.tokens_in if llm else None, tokens_out=log_.tokens_out if llm else None,
-        output_summary=log_.summary,
+        output_summary=log_.summary, error=error,
     )
 
 

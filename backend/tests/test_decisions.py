@@ -151,20 +151,20 @@ def _item_decided(data: dict):
                           mocked.Inngest(app_id="test"))
 
 
-def test_item_decided_writes_audit_and_a_remembered_rule(ran):
+def test_the_decision_saves_the_rule_and_item_decided_writes_the_audit(ran):
     http, run_id, events = ran
     pending = _pending(http, run_id)
-    _decide(http, pending["BANK032"]["id"], remember=True)
-    _decide(http, pending["BANK042"]["id"])
+    rule_id = _decide(http, pending["BANK032"]["id"], remember=True).json()["rule_id"]
+    assert _decide(http, pending["BANK042"]["id"]).json()["rule_id"] is None  # no remember
+    (rule,) = asyncio.run(MEMORY_RUNS.list_rules())  # saved by the route, before any job runs
 
     remembered = _item_decided(events[0].data)
     plain = _item_decided(events[1].data)
 
     assert remembered.status is plain.status is mocked.Status.COMPLETED
-    assert plain.output["rule_id"] is None
-    rule_id = remembered.output["rule_id"]
+    assert "rule_id" not in remembered.output  # B-14: the job no longer saves rules
     assert all(isinstance(v, (int, str)) for v in remembered.output.values() if v is not None)
-    (rule,) = asyncio.run(MEMORY_RUNS.list_rules())
+    assert len(asyncio.run(MEMORY_RUNS.list_rules())) == 1
     assert rule.id == rule_id and rule.kind == "bank_fee_missing_in_gl" and rule.active
     # B-13 matches on direction and the approved amount too (BANK032 is a -25.00 fee: money out).
     assert rule.pattern == {"description_regex": "MONTHLY SERVICE FEE", "direction": "out"}
@@ -206,7 +206,9 @@ def _gl_item(gl_id: str):
 
     from app.schemas.runs import Item, ProposedEntry
 
-    return Item(id="i", run_id="r", kind="unknown", resolution="escalate", status="approved", bank_ids=[],
+    # A learnable kind: `unknown` is in RULE_EXCLUDED_KINDS, so it would teach nothing (B-14).
+    return Item(id="i", run_id="r", kind="interest_missing_in_gl", resolution="escalate", status="approved",
+                bank_ids=[],
                 gl_ids=[gl_id], amount_delta=Decimal("1.00"), evidence=[], flags=[],
                 proposed_entry=ProposedEntry(id="e", debit_account="1010", credit_account="5000",
                                              amount=Decimal("1.00"), memo="m", status="approved"),
@@ -231,10 +233,10 @@ def test_learned_rules_keep_people_out_and_businesses_in():
         assert not _is_business(name, data), name
 
 
-def test_demo_reset_clears_runs_and_learned_rules_and_keeps_history(ran):
+def test_demo_reset_clears_runs_keeps_rules_and_keeps_history(ran):
     http, run_id, events = ran
     fee = _pending(http, run_id)["BANK032"]
-    _decide(http, fee["id"], remember=True)
+    learned = _decide(http, fee["id"], remember=True).json()["rule_id"]
     _item_decided(events[0].data)
     audit_before = len(MEMORY_RUNS.audit)
 
@@ -243,14 +245,14 @@ def test_demo_reset_clears_runs_and_learned_rules_and_keeps_history(ran):
                                                origin="seeded"))
     response = http.post("/api/v1/demo/reset")
     assert response.status_code == 200
-    assert response.json() == {"dataset": DATASET, "runs_deleted": 1, "rules_deleted": 1}
-    assert [r.id for r in asyncio.run(MEMORY_RUNS.list_rules())] == [seeded]  # seeded rules stay
+    assert response.json() == {"dataset": DATASET, "runs_deleted": 1, "rules_kept": 1}
+    assert [r.id for r in asyncio.run(MEMORY_RUNS.list_rules())] == [learned, seeded]  # B-14: all rules stay
     assert http.get(f"/api/v1/runs/{run_id}").status_code == 404
     assert http.get("/api/v1/statement").json()["unreconciled_difference"] == "864.09"
     assert len(MEMORY_RUNS.audit) == audit_before + 1  # history kept, the reset logged on top
     last = MEMORY_RUNS.audit[-1]
     assert (last["action"], last["entity_id"], last["actor"]) == ("demo_reset", DATASET, "user:demo@bridge.local")
-    assert last["detail"] == {"runs_deleted": 1, "rules_deleted": 1}
+    assert last["detail"] == {"runs_deleted": 1, "rules_kept": 1}
 
 
 def test_demo_reset_is_off_without_the_public_demo_flag(app, monkeypatch):
