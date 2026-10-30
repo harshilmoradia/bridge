@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { BookOpen, ChartColumn, Landmark, LogIn, LogOut, Moon, Scale, Sun } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet } from 'react-router';
+import { BrandMark } from './BrandMark';
 import { useDatasets } from '../api/hooks';
 import { useTheme } from '../context/theme';
 import { cn } from '../lib/utils';
@@ -13,16 +14,6 @@ const NAV: { to: string; icon: LucideIcon; label: string }[] = [
     { to: '/ledger', icon: BookOpen, label: 'Ledger' },
     { to: '/evals', icon: ChartColumn, label: 'Model tiers' },
 ];
-
-function BrandMark() {
-    return (
-        <div aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-foreground text-background">
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M2 17c4-8 16-8 20 0M6 17v-4.5M12 17v-6.5M18 17v-4.5M2 17h20" />
-            </svg>
-        </div>
-    );
-}
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('') || '?';
 
@@ -42,10 +33,10 @@ export function AppLayout({ userName, userEmail, isDemo, signOut, signingOut, on
     return (
         <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row">
             <aside aria-label="Main" className="flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-card px-3 py-1.5 md:w-54 md:flex-col md:items-stretch md:gap-1 md:overflow-visible md:border-r md:border-b-0 md:px-2.5 md:py-3.5">
-                <div className="flex items-center gap-2.5 pr-2 md:px-2 md:pt-1 md:pb-4">
+                <Link to="/" aria-label="Bridge home" className="flex items-center gap-2.5 pr-2 md:px-2 md:pt-1 md:pb-4">
                     <BrandMark />
                     <span className="hidden text-base font-bold tracking-tight md:block">Bridge</span>
-                </div>
+                </Link>
                 <nav className="flex gap-0.5 md:flex-col">
                     {NAV.map(({ to, icon: Icon, label }) => (
                         <NavLink key={to} to={to} aria-label={label} title={label}
