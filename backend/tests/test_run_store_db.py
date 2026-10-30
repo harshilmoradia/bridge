@@ -169,24 +169,36 @@ def test_b12_approving_all_five_closes_the_statement_on_postgres(monkeypatch):
         with TestClient(create_app()) as http:
             pending = http.get(f"/api/v1/runs/{run.id}/items", params={"status": "needs_approval"}).json()
             assert len(pending) == 5
-            for n, item in enumerate(pending):
-                r = http.post(f"/api/v1/items/{item['id']}/decision",
-                              json={"decision": "approve", "remember": n == 0})
+            saved = {}
+            for item in pending:
+                assert item["learnable"] is (item["kind"] in ("bank_fee_missing_in_gl", "interest_missing_in_gl"))
+                r = http.post(f"/api/v1/items/{item['id']}/decision", json={"decision": "approve", "remember": True})
                 assert r.status_code == 200, r.text
+                saved[item["kind"]] = r.json()["rule_id"]
             assert r.json()["statement"]["unreconciled_difference"] == "0.00"
             assert http.get("/api/v1/statement", params={"run_id": run.id}).json()["unreconciled_difference"] == "0.00"
+            # B-14: only the fee and the interest teach a rule, saved inline by the decision.
+            learned = [v for v in saved.values() if v is not None]
+            assert sorted(k for k, v in saved.items() if v is not None) == [
+                "bank_fee_missing_in_gl", "interest_missing_in_gl"]
 
             decided = [mocked.trigger(item_decided, e, mocked.Inngest(app_id="test")) for e in events]
-            assert all(d.status is mocked.Status.COMPLETED for d in decided)
-            assert decided[0].output["rule_id"] is not None and decided[1].output["rule_id"] is None
+            assert all(d.status is mocked.Status.COMPLETED and "rule_id" not in d.output for d in decided)
 
             seeded = asyncio.run(runs.add_rule(kind="unknown", pattern={"description_regex": "X"}, action={},
                                                source_item=None, created_by="system", dataset=DATASET,
                                                origin="seeded"))
             reset = http.post("/api/v1/demo/reset").json()
-            assert reset["runs_deleted"] >= 1 and reset["rules_deleted"] >= 1
+            assert reset["runs_deleted"] >= 1 and reset["rules_kept"] >= 2
             assert http.get(f"/api/v1/runs/{run.id}").status_code == 404
-            assert seeded in [r.id for r in asyncio.run(runs.list_rules())]  # seeded rules stay
+            after = {r.id: r for r in asyncio.run(runs.list_rules())}
+            assert seeded in after and all(after[i].source_item is None for i in learned)  # rules survive
+
+            assert http.delete(f"/api/v1/rules/{seeded}").status_code == 409
+            assert http.delete(f"/api/v1/rules/{learned[0]}").json() == {"rule_id": learned[0]}
+            assert http.delete(f"/api/v1/rules/{learned[0]}").status_code == 404
+            assert http.delete("/api/v1/rules").json()["rules_deleted"] >= 1
+            assert seeded in [r.id for r in asyncio.run(runs.list_rules())]
 
             async def audit_and_drop_rule():
                 import psycopg
@@ -196,13 +208,14 @@ def test_b12_approving_all_five_closes_the_statement_on_postgres(monkeypatch):
                         "select count(*) from audit_log where run_id is null and entity_type = 'item' "
                         "and entity_id = any(%s)", ([i["id"] for i in pending],))).fetchone()
                     last = await (await conn.execute(
-                        "select action, entity_id, detail from audit_log order by id desc limit 1")).fetchone()
+                        "select action, entity_id, detail from audit_log where action = 'demo_reset' "
+                        "order by id desc limit 1")).fetchone()
                     await conn.execute("delete from rules where id = %s", (seeded,))
                     return kept[0], last
 
             kept, last = asyncio.run(audit_and_drop_rule())
             assert kept == 5  # the five approvals outlive their run (append-only audit_log)
-            assert last[:2] == ("demo_reset", DATASET) and last[2]["rules_deleted"] == reset["rules_deleted"]
+            assert last[:2] == ("demo_reset", DATASET) and last[2]["rules_kept"] == reset["rules_kept"]
     finally:
         asyncio.run(_delete(run.id))
         get_settings.cache_clear()

@@ -95,17 +95,40 @@ async def test_reset_keeps_audit_history_and_seeded_rules_and_logs_itself():
         return store.add_rule(kind="exact", pattern={"description_regex": "X"}, action={}, source_item=source,
                               created_by="user:a", dataset=dataset, origin=origin)
 
-    await rule("northbrook-2026-10")
-    await rule("northbrook-2026-10", source=None)  # learned, its item long gone: still this dataset's
+    first = await rule("northbrook-2026-10")
+    second = await rule("northbrook-2026-10", source=None)  # learned, its item long gone: still this dataset's
     seeded = await rule("northbrook-2026-10", origin="seeded", source=None)
     other = await rule("other", source=None)
 
+    # B-14: a reset keeps every rule; (runs deleted, this dataset's learned rules kept).
     assert await store.reset("northbrook-2026-10", actor="user:demo") == (1, 2)
 
     assert await store.get_run(run.id) is None and await store.get_run(kept_run.id) is not None
-    assert [r.id for r in await store.list_rules()] == [seeded, other]
+    rules = await store.list_rules()
+    assert [r.id for r in rules] == [first, second, seeded, other]
+    assert rules[0].source_item is None  # its item went with the run (on delete set null)
     decision, reset = store.audit
     assert (decision["entity_id"], decision["action"], decision["run_id"]) == ("i1", "approve", None)
     assert (reset["entity_type"], reset["entity_id"], reset["action"], reset["actor"], reset["run_id"]) == (
         "dataset", "northbrook-2026-10", "demo_reset", "user:demo", None)
-    assert reset["detail"] == {"runs_deleted": 1, "rules_deleted": 2}
+    assert reset["detail"] == {"runs_deleted": 1, "rules_kept": 2}
+
+
+async def test_forgetting_rules_touches_only_this_datasets_learned_rules():
+    store = MemoryRunStore()
+
+    def rule(dataset: str, origin: str = "learned"):
+        return store.add_rule(kind="exact", pattern={}, action={}, source_item=None, created_by="user:a",
+                              dataset=dataset, origin=origin)
+
+    one, two = await rule("northbrook-2026-10"), await rule("northbrook-2026-10")
+    seeded, other = await rule("northbrook-2026-10", "seeded"), await rule("other")
+    assert await store.delete_rule("northbrook-2026-10", seeded, actor="user:a") == "seeded"
+    assert await store.delete_rule("northbrook-2026-10", other, actor="user:a") is None
+    assert await store.delete_rule("northbrook-2026-10", one, actor="user:a") == "learned"
+    assert await store.delete_rule("northbrook-2026-10", one, actor="user:a") is None
+    assert await store.delete_learned_rules("northbrook-2026-10", actor="user:a") == 1
+    assert [r.id for r in await store.list_rules()] == [seeded, other]
+    assert [(a["entity_id"], a["action"]) for a in store.audit] == [
+        (str(one), "rule_forgotten"), ("northbrook-2026-10", "rules_forgotten")]
+    assert two not in [r.id for r in await store.list_rules()]

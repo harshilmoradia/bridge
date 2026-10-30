@@ -15,10 +15,11 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.schemas.common import ApiError
-from app.schemas.runs import AuditEntry, EntryOverride, Item, ProposedEntry, Rule, Run, RunCounts, RunStatus, RunStep
+from app.schemas.runs import (
+    AuditEntry, EntryOverride, Item, ProposedEntry, Rule, RuleOrigin, Run, RunCounts, RunStatus, RunStep,
+)
 
 Verdict = Literal["approve", "reject"]
-RuleOrigin = Literal["learned", "seeded"]
 LIVE_RUN_STATUSES = ("running", "completed")  # runs whose items label rows and feed the statement
 
 
@@ -103,12 +104,20 @@ class RunStore(Protocol):
         ...
 
     async def reset(self, dataset: str, *, actor: str) -> tuple[int, int]:
-        """Delete the dataset's runs (with steps, items, entries and decisions) and its learned rules.
-
-        Seeded rules and other datasets' rules stay. `audit_log` is append-only: its rows stay (their
+        """Delete the dataset's runs (with steps, items, entries and decisions). Rules all stay (B-14):
+        a learned rule's `source_item` goes null. `audit_log` is append-only: its rows stay (their
         `run_id` goes null) and the reset adds a `demo_reset` row with the counts. Returns (runs
-        deleted, rules deleted).
+        deleted, learned rules still active for the dataset).
         """
+        ...
+
+    async def delete_rule(self, dataset: str, rule_id: int, *, actor: str) -> RuleOrigin | None:
+        """Delete one learned rule of `dataset` and log `rule_forgotten`. Returns the rule's origin
+        (a seeded rule is left alone), or None when the dataset has no rule with that id."""
+        ...
+
+    async def delete_learned_rules(self, dataset: str, *, actor: str) -> int:
+        """Delete all of `dataset`'s learned rules and log `rules_forgotten`. Returns how many."""
         ...
 
 
@@ -129,6 +138,7 @@ class MemoryRunStore:
         self.audit: list[dict[str, Any]] = []
         self._rules: list[Rule] = []
         self._rule_scope: dict[int, tuple[str, RuleOrigin]] = {}  # rule id -> (dataset, origin)
+        self._last_rule_id = 0  # like Postgres serial: a forgotten rule's id is never reused
 
     async def create_run(self, dataset: str, period_start: date, period_end: date) -> Run:
         now = _now()
@@ -218,10 +228,12 @@ class MemoryRunStore:
         self, *, kind: str, pattern: dict[str, Any], action: dict[str, Any], source_item: str | None,
         created_by: str, dataset: str, origin: RuleOrigin = "learned",
     ) -> int:
-        rule_id = max((r.id for r in self._rules), default=0) + 1
+        self._last_rule_id += 1
+        rule_id = self._last_rule_id
         self._rule_scope[rule_id] = (dataset, origin)
         self._rules.append(Rule(id=rule_id, kind=kind, pattern=pattern, action=action, source_item=source_item,
-                                created_by=created_by, active=True, created_at=_now()))
+                                created_by=created_by, dataset=dataset, origin=origin, active=True,
+                                created_at=_now()))
         return rule_id
 
     async def list_rules(self, dataset: str | None = None) -> list[Rule]:
@@ -238,15 +250,33 @@ class MemoryRunStore:
         for a in self.audit:  # on delete set null
             if a["run_id"] in run_ids:
                 a["run_id"] = None
-        kept = [r for r in self._rules if self._rule_scope[r.id] != (dataset, "learned")]
-        removed = len(self._rules) - len(kept)
-        self._rules = kept
         for r in self._rules:  # on delete set null
             if r.source_item in item_ids:
                 r.source_item = None
+        kept = sum(1 for r in self._rules if r.active and self._rule_scope[r.id] == (dataset, "learned"))
         await self.add_audit(run_id=None, entity_type="dataset", entity_id=dataset, action="demo_reset",
-                             actor=actor, detail={"runs_deleted": len(run_ids), "rules_deleted": removed})
-        return len(run_ids), removed
+                             actor=actor, detail={"runs_deleted": len(run_ids), "rules_kept": kept})
+        return len(run_ids), kept
+
+    async def delete_rule(self, dataset: str, rule_id: int, *, actor: str) -> RuleOrigin | None:
+        scope = self._rule_scope.get(rule_id)
+        if scope is None or scope[0] != dataset:
+            return None
+        if scope[1] == "learned":
+            self._rules = [r for r in self._rules if r.id != rule_id]
+            del self._rule_scope[rule_id]
+            await self.add_audit(run_id=None, entity_type="rule", entity_id=str(rule_id), action="rule_forgotten",
+                                 actor=actor, detail={"dataset": dataset})
+        return scope[1]
+
+    async def delete_learned_rules(self, dataset: str, *, actor: str) -> int:
+        gone = {r.id for r in self._rules if self._rule_scope[r.id] == (dataset, "learned")}
+        self._rules = [r for r in self._rules if r.id not in gone]
+        for rule_id in gone:
+            del self._rule_scope[rule_id]
+        await self.add_audit(run_id=None, entity_type="dataset", entity_id=dataset, action="rules_forgotten",
+                             actor=actor, detail={"rules_deleted": len(gone)})
+        return len(gone)
 
 
 RUN_COLS = "id::text, dataset, period_start, period_end, status, counts, report, error, created_at, updated_at"
@@ -274,7 +304,7 @@ ITEMS_SQL = (
     f"pe.id::text as entry_id, {EFFECTIVE_ENTRY_COLS}, pe.status as entry_status "
     f"from items i {EFFECTIVE_ENTRY_JOINS}"
 )
-RULE_COLS = "id, kind, pattern, action, source_item::text, created_by, active, created_at"
+RULE_COLS = "id, kind, pattern, action, source_item::text, created_by, dataset, origin, active, created_at"
 
 
 def _item_from_row(r: dict) -> Item:
@@ -504,15 +534,45 @@ class DbRunStore:
         from psycopg.types.json import Jsonb
 
         async with await self._connect() as conn, conn.transaction():
-            rules = await conn.execute(
-                "delete from rules where dataset = %s and origin = 'learned'", (dataset,))
-            # Cascades to run_steps, items, proposed_entries and decisions; audit_log rows keep, run_id null.
+            # Cascades to run_steps, items, proposed_entries and decisions; audit_log rows keep, run_id
+            # null; rules keep, source_item null (both `on delete set null`).
             runs = await conn.execute("delete from runs where dataset = %s", (dataset,))
+            kept = (await (await conn.execute(
+                "select count(*) as n from rules where dataset = %s and origin = 'learned' and active",
+                (dataset,))).fetchone())["n"]
             await conn.execute(
                 "insert into audit_log (run_id, entity_type, entity_id, action, actor, detail) "
                 "values (null, 'dataset', %s, 'demo_reset', %s, %s)",
-                (dataset, actor, Jsonb({"runs_deleted": runs.rowcount, "rules_deleted": rules.rowcount})))
-            return runs.rowcount, rules.rowcount
+                (dataset, actor, Jsonb({"runs_deleted": runs.rowcount, "rules_kept": kept})))
+            return runs.rowcount, kept
+
+    async def delete_rule(self, dataset: str, rule_id: int, *, actor: str) -> RuleOrigin | None:
+        from psycopg.types.json import Jsonb
+
+        async with await self._connect() as conn, conn.transaction():
+            row = await (await conn.execute(
+                "select origin from rules where id = %s and dataset = %s for update", (rule_id, dataset),
+            )).fetchone()
+            if row is None:
+                return None
+            if row["origin"] == "learned":
+                await conn.execute("delete from rules where id = %s", (rule_id,))
+                await conn.execute(
+                    "insert into audit_log (run_id, entity_type, entity_id, action, actor, detail) "
+                    "values (null, 'rule', %s, 'rule_forgotten', %s, %s)",
+                    (str(rule_id), actor, Jsonb({"dataset": dataset})))
+            return row["origin"]
+
+    async def delete_learned_rules(self, dataset: str, *, actor: str) -> int:
+        from psycopg.types.json import Jsonb
+
+        async with await self._connect() as conn, conn.transaction():
+            rules = await conn.execute("delete from rules where dataset = %s and origin = 'learned'", (dataset,))
+            await conn.execute(
+                "insert into audit_log (run_id, entity_type, entity_id, action, actor, detail) "
+                "values (null, 'dataset', %s, 'rules_forgotten', %s, %s)",
+                (dataset, actor, Jsonb({"rules_deleted": rules.rowcount})))
+            return rules.rowcount
 
 
 MEMORY_RUNS = MemoryRunStore()

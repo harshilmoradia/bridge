@@ -25,6 +25,7 @@ Resolution = Literal["auto_match", "auto_match_with_writeoff", "apply_rule", "re
 ItemFlag = Literal["pii_redacted", "injection_flagged", "rule_applied"]
 EvidenceType = Literal["bank_transaction", "gl_entry", "policy", "rule"]
 EntryStatus = Literal["draft", "approved", "rejected", "posted"]
+RuleOrigin = Literal["learned", "seeded"]
 
 
 class CreateRunRequest(BaseModel):
@@ -114,6 +115,8 @@ class Item(BaseModel):
     rule_id: int | None = None
     proposed_entry: ProposedEntry | None = None
     created_at: datetime
+    learnable: bool = Field(default=False, description=(
+        "True only when approving with remember would save a rule (recon/decisions.learnable)"))
 
 
 class EntryOverride(BaseModel):
@@ -141,11 +144,20 @@ class DecisionRequest(BaseModel):
 class DecisionResponse(BaseModel):
     item: Item
     statement: Statement
+    rule_id: int | None = Field(default=None, description="The rule this decision saved, else null")
 
 
 class DemoResetResponse(BaseModel):
     dataset: str
     runs_deleted: int
+    rules_kept: int = Field(description="Learned rules still active for the dataset; a reset keeps them")
+
+
+class RuleForgotten(BaseModel):
+    rule_id: int
+
+
+class RulesForgotten(BaseModel):
     rules_deleted: int
 
 
@@ -156,6 +168,8 @@ class Rule(BaseModel):
     action: dict[str, Any] = Field(examples=[{"debit": "6800", "credit": "1010"}])
     source_item: str | None = None
     created_by: str
+    dataset: str = Field(examples=["northbrook-2026-10"])
+    origin: RuleOrigin = Field(description="learned (a remember approval; can be forgotten) or seeded")
     active: bool
     created_at: datetime
 
