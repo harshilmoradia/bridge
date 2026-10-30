@@ -81,4 +81,5 @@ class StepLog(BaseModel):
     tokens_in: int = 0
     tokens_out: int = 0
     calls: int = 0
+    failed_calls: int = 0  # calls that raised and fell back to a code default; all failed: the row is failed
     summary: str = ""

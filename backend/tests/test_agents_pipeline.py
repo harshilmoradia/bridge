@@ -461,3 +461,27 @@ async def test_a_code_draft_fallback_keeps_the_critic_rejection_visible() -> Non
     assert "Labelled by code" not in receipt.reasoning
     assert receipt.reasoning.startswith("Labelled by Nano; draft built by code")
     assert fee.reasoning.startswith("Labelled by code")
+
+
+async def test_an_outage_is_counted_on_each_stage_it_hit() -> None:
+    run = await run_agents(DATASET, client_for(NanoDown(super_classifies=False))[0])
+    steps = {s.id: s for s in run.steps}
+    # Two fuzzy groups need the model (GL003's copies are paired by code); classify tries Nano, then Super.
+    assert (steps["match-fuzzy"].calls, steps["match-fuzzy"].failed_calls) == (0, 2)
+    assert (steps["classify"].calls, steps["classify"].failed_calls) == (0, 2)
+    assert steps["match-rules"].failed_calls == 0 and steps["resolve"].failed_calls == 0
+
+
+async def test_a_partial_failure_is_noted_in_the_summary() -> None:
+    run = await run_agents(DATASET, client_for(NanoDown(super_classifies=True))[0])
+    classify = next(s for s in run.steps if s.id == "classify")
+    assert (classify.calls, classify.failed_calls) == (1, 1)
+    assert classify.summary.endswith("; 1 of 2 model calls failed")
+
+
+async def test_failed_critic_calls_are_counted_on_review_only() -> None:
+    run = await run_agents(DATASET, client_for(CriticBroken())[0])
+    steps = {s.id: s for s in run.steps}
+    assert (steps["review"].calls, steps["review"].failed_calls) == (0, 7)
+    assert steps["resolve"].failed_calls == 0
+    assert "model calls failed" not in steps["review"].summary  # it already counts critic failures

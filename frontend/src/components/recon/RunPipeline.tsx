@@ -1,7 +1,7 @@
 import { Check, X } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Run, RunStep } from '../../api/types';
-import { formatLatency, groupSteps, STEP_STATUS_LABEL, stepDetail, stepsDone } from '../../lib/stepper';
+import { fallbackWarning, formatLatency, groupSteps, STEP_STATUS_LABEL, stepDetail, stepsDone } from '../../lib/stepper';
 import { isRunActive } from '../../lib/workspace';
 import { cn } from '../../lib/utils';
 import { TierTag } from './ApprovalInbox';
@@ -49,6 +49,7 @@ export function RunPipeline({ run }: { run: Run }) {
     const current = run.steps.find(s => s.status === 'running');
     const total = run.steps.length;
     const done = stepsDone(run.steps);
+    const warning = fallbackWarning(run);
     const tone = run.status === 'completed' ? 'bg-good-soft text-good' : run.status === 'failed' ? 'bg-destructive-soft text-destructive' : 'bg-primary-soft text-primary';
     return (
         <section aria-label="Agent run" data-testid="run-stepper" className="min-w-0 rounded-lg border bg-card shadow-card">
@@ -63,6 +64,7 @@ export function RunPipeline({ run }: { run: Run }) {
                     {run.status === 'completed' && ` · ${run.counts.matched} matched, ${run.counts.auto_resolved} auto-resolved, ${run.counts.needs_approval} need approval`}
                 </span>
                 {run.status === 'failed' && <span className="text-[12.5px] text-destructive">{run.error?.message ?? 'The run failed.'}</span>}
+                {warning && <span role="alert" data-testid="run-fallback-warning" className="text-[12.5px] text-destructive">{warning}</span>}
                 <span className="ml-auto flex gap-4 text-[13px] font-semibold">
                     <Link to={`/runs/${encodeURIComponent(run.id)}`} className="text-primary hover:underline">View trace</Link>
                     {run.status === 'completed' && <Link to={`/report/${encodeURIComponent(run.id)}`} className="text-primary hover:underline">Report</Link>}
