@@ -5,7 +5,7 @@ from openai import OpenAI
 load_dotenv()
 client = OpenAI(
     base_url="https://api.tokenfactory.nebius.com/v1/",
-    api_key=os.environ["NEBIUS_API_KEY"],
+    api_key=os.environ["LLM_API_KEY"],
 )
 
 # 1) list every Nemotron model the account can see

@@ -287,3 +287,16 @@ async def test_db_run_store_lists_only_a_datasets_active_rules():
     finally:
         async with await psycopg.AsyncConnection.connect(DATABASE_URL, prepare_threshold=None) as conn:
             await conn.execute("delete from rules where id = any(%s)", ([mine, other, off],))
+
+
+async def test_db_run_store_saves_an_item_a_learned_rule_closed():
+    """B-13 writes resolution `apply_rule`; the schema's check constraint must allow it."""
+    runs = DbRunStore(DATABASE_URL)
+    run = await runs.create_run(DATASET, date(2026, 10, 1), date(2026, 10, 31))
+    try:
+        fee = _fee(run.id).model_copy(update={"resolution": "apply_rule", "status": "auto_resolved", "rule_id": 1})
+        await runs.replace_items(run.id, [fee])
+        (item,) = await runs.list_items(run.id)
+        assert (item.resolution, item.status, item.rule_id) == ("apply_rule", "auto_resolved", 1)
+    finally:
+        await _delete(run.id)
