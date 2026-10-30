@@ -15,10 +15,11 @@ export default function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <AuthGate>
-                {(identity, signOut, signingOut) => (
+                {(identity, signOut, signingOut, signIn) => (
                     <BrowserRouter key={identity.id}>
                         <Routes>
-                            <Route element={<AppLayout key={identity.id} userName={identity.displayName} userEmail={identity.email} signOut={() => void signOut()} signingOut={signingOut} />}>
+                            <Route element={<AppLayout key={identity.id} userName={identity.displayName} userEmail={identity.email} isDemo={identity.isDemo}
+                                signOut={() => void signOut()} signingOut={signingOut} onSignIn={signIn} />}>
                                 <Route index element={<Navigate to="/reconcile" replace />} />
                                 <Route path="reconcile" element={<ReconcilePage />} />
                                 <Route path="bank" element={<BankPage />} />

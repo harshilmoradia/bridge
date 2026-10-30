@@ -30,14 +30,19 @@ function switchIdentity(key: string) {
 }
 
 interface AuthGateProps {
-    children: (identity: Identity, signOut: () => Promise<void>, signingOut: boolean) => ReactNode;
+    children: (identity: Identity, signOut: () => Promise<void>, signingOut: boolean, signIn?: () => void) => ReactNode;
 }
+
+const DEMO_IDENTITY: Identity = { id: 'demo', email: 'demo@bridge.ai', displayName: 'Northbrook Goods', isDemo: true };
+
+// Visitors land in the demo workspace. The sign-in screen opens on request, or straight away for email links (recovery, errors).
+const authLinkInUrl = () => new URLSearchParams(window.location.search).get('auth') === 'recovery' || new URLSearchParams(window.location.hash.slice(1)).has('error');
 
 export function AuthGate({ children }: AuthGateProps) {
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(Boolean(supabase));
     const [busy, setBusy] = useState(false);
-    const [demo, setDemo] = useState(false);
+    const [showAuth, setShowAuth] = useState(authLinkInUrl);
     const [mode, setMode] = useState<AuthMode>('login');
     const [recovering, setRecovering] = useState(false);
     const [error, setError] = useState(() => new URLSearchParams(window.location.hash.slice(1)).has('error') ? 'This email link is invalid or has expired. Please request a new link.' : '');
@@ -62,7 +67,7 @@ export function AuthGate({ children }: AuthGateProps) {
             if (event === 'PASSWORD_RECOVERY' || (event === 'INITIAL_SESSION' && recoveryRequested && nextSession)) {
                 setRecovering(true);
                 setMode('update');
-                setDemo(false);
+                setShowAuth(true);
             }
             if (event === 'INITIAL_SESSION' && recoveryRequested && !nextSession) {
                 setMode('reset');
@@ -72,7 +77,7 @@ export function AuthGate({ children }: AuthGateProps) {
             if (event === 'SIGNED_OUT') {
                 setRecovering(false);
                 switchIdentity('');
-                setDemo(false);
+                setShowAuth(false);
                 setMode('login');
                 setProfileResult(null);
             }
@@ -98,7 +103,7 @@ export function AuthGate({ children }: AuthGateProps) {
     const profileError = currentProfile?.failed;
     useEffect(() => {
         const client = supabase;
-        if (!client || !userId || recovering || demo) return;
+        if (!client || !userId || recovering) return;
         let active = true;
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 10000);
@@ -109,7 +114,7 @@ export function AuthGate({ children }: AuthGateProps) {
             }, () => { if (active) setProfileResult({ userId, attempt: profileAttempt, data: null, failed: true }); })
             .finally(() => window.clearTimeout(timeout));
         return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
-    }, [userId, recovering, demo, profileAttempt]);
+    }, [userId, recovering, profileAttempt]);
 
     const changeMode = (next: AuthMode) => {
         setMode(next);
@@ -122,8 +127,7 @@ export function AuthGate({ children }: AuthGateProps) {
         setBusy(true);
         setError('');
         try {
-            if (demo) { switchIdentity(''); setDemo(false); }
-            else if (supabase) {
+            if (supabase) {
                 const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
                 if (signOutError) throw signOutError;
             }
@@ -178,7 +182,6 @@ export function AuthGate({ children }: AuthGateProps) {
     };
 
     if (loading) return <AuthShell><p role="status" className="text-center">Restoring your session…</p></AuthShell>;
-    if (demo) return children({ id: 'demo', email: 'demo@bridge.ai', displayName: 'Demo User', isDemo: true }, signOut, busy);
     if (session && !recovering) {
         if (profile?.id === session.user.id) return <>
             {error && <div role="alert" className="fixed top-4 right-4 z-50 max-w-sm rounded-lg bg-card border border-border p-4 shadow-lg">{error}</div>}
@@ -188,12 +191,15 @@ export function AuthGate({ children }: AuthGateProps) {
             <h1 className="text-xl font-bold text-center">{profileError ? 'Your profile could not be loaded' : 'Opening your workspace…'}</h1>
             {profileError ? <>
                 <p role="alert" className="text-sm text-muted-foreground my-4">You’re signed in, but your profile is unavailable. Try again or contact your administrator.</p>
-                <button type="button" disabled={busy} onClick={() => setProfileAttempt(value => value + 1)} className="w-full bg-primary text-primary-foreground rounded-xl py-3">Try again</button>
+                <button type="button" disabled={busy} onClick={() => setProfileAttempt(value => value + 1)} className="w-full bg-primary text-primary-foreground rounded-md py-2.5">Try again</button>
             </> : <p role="status" className="text-center text-sm my-4">Loading your profile…</p>}
             {error && <p role="alert" className="text-sm text-destructive mt-4">{error}</p>}
             <button type="button" disabled={busy} onClick={() => void signOut()} className="w-full text-primary mt-4">{busy ? 'Signing out…' : 'Sign out'}</button>
         </AuthShell>;
     }
-    return <LoginScreen key={mode} configured={Boolean(supabase)} mode={mode} busy={busy} error={error} notice={notice} onModeChange={changeMode} onSubmit={submit}
-        onDemo={() => { switchIdentity('demo'); setDemo(true); setError(''); setNotice(''); }} onCancelRecovery={() => void signOut()} />;
+    if (!showAuth || !supabase) {
+        return children(DEMO_IDENTITY, signOut, busy, supabase ? () => { changeMode('login'); setShowAuth(true); } : undefined);
+    }
+    return <LoginScreen key={mode} configured mode={mode} busy={busy} error={error} notice={notice} onModeChange={changeMode} onSubmit={submit}
+        onDemo={() => { setShowAuth(false); setError(''); setNotice(''); clearRecoveryUrl(); }} onCancelRecovery={() => void signOut()} />;
 }

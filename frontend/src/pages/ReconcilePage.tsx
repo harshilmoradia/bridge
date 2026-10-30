@@ -1,62 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, Play } from 'lucide-react';
 import { toast } from 'sonner';
-import { ApprovalDrawer } from '../components/recon/ApprovalDrawer';
+import { ApprovalInbox } from '../components/recon/ApprovalInbox';
 import { useBankTransactions, useCreateRun, useDatasets, useGlEntries, useRun, useRunItems, useStatement } from '../api/hooks';
 import { keys } from '../api/keys';
-import type { Dataset, EvidenceRef, Item, Run } from '../api/types';
-import { Money } from '../components/Money';
+import type { Dataset, EvidenceRef, Item } from '../api/types';
 import { QueryState } from '../components/QueryState';
 import { StatementCard } from '../components/StatementCard';
-import { StatusChip } from '../components/StatusChip';
-import { RuleChip } from '../components/RuleChip';
-import { isRuleAutoResolved } from '../lib/rules';
+import { KpiStrip } from '../components/recon/KpiStrip';
 import { ResetDemoButton } from '../components/recon/ResetDemoButton';
-import { RunStepper } from '../components/recon/RunStepper';
+import { RunPipeline } from '../components/recon/RunPipeline';
 import { TransactionTable } from '../components/recon/TransactionTable';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { cn } from '../lib/utils';
 import { bankToRow, glToRow, type TxRow } from '../lib/tableModel';
 import { defaultRange, isRunActive, itemsSignature, needsApproval, nextHighlight, shouldRefreshOnComplete } from '../lib/workspace';
 import { Page } from './Pages';
 
-const field = 'h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
-
-function RunStatusLine({ run }: { run: Run }) {
-    const total = run.steps.length;
-    const done = run.steps.filter(s => s.status === 'completed').length;
-    const current = run.steps.find(s => s.status === 'running');
-    return (
-        <div className="flex flex-wrap items-center gap-2 text-sm" role="status" data-testid="run-status" data-run-status={run.status}>
-            <Badge variant="secondary">{run.status}</Badge>
-            {isRunActive(run.status) && <span className="text-muted-foreground">{current ? `${current.label}...` : 'Waiting for the first step...'}</span>}
-            {total > 0 && <span className="text-muted-foreground">{done} of {total} steps done</span>}
-            {run.status === 'completed' && <span className="text-muted-foreground">{run.counts.matched} matched, {run.counts.auto_resolved} auto-resolved, {run.counts.needs_approval} need approval</span>}
-            {run.status === 'failed' && <span className="text-destructive">{run.error?.message ?? 'The run failed.'}</span>}
-            <span className="ml-auto flex gap-3 font-medium">
-                {run.status === 'completed' && <Link to={`/report/${encodeURIComponent(run.id)}`} className="text-primary underline">Report</Link>}
-                <Link to={`/runs/${encodeURIComponent(run.id)}`} className="text-primary underline">View trace</Link>
-            </span>
-        </div>
-    );
-}
-
-function ItemButton({ item, active, onSelect }: { item: Item; active: boolean; onSelect: () => void }) {
-    return (
-        <li data-item-id={item.id} data-rule-applied={isRuleAutoResolved(item) || undefined}>
-            <button type="button" aria-pressed={active} onClick={onSelect}
-                className={cn('flex w-full flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-left text-sm', active && 'border-primary bg-primary/10', isRuleAutoResolved(item) && !active && 'border-dashed border-violet-500/50 bg-violet-500/5')}>
-                <span className="font-medium">{item.kind.replaceAll('_', ' ')}</span>
-                <StatusChip status={item.status} />
-                <RuleChip item={item} interactive={false} />
-                <Money value={item.amount_delta} />
-            </button>
-        </li>
-    );
-}
+const field = 'h-8 rounded-md border bg-card px-2 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
 
 function Workspace({ datasets }: { datasets: Dataset[] }) {
     const client = useQueryClient();
@@ -66,7 +29,6 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
     const { from, to } = range ?? defaultRange(dataset);
     const [startedRunId, setStartedRunId] = useState<string | null>(null);
     const [highlight, setHighlight] = useState<string | null>(null);
-    const [approvalOpen, setApprovalOpen] = useState(false);
 
     const statement = useStatement(dataset.id);
     // A reset deletes the run; the statement may still name it until it refetches, so that id stays dismissed.
@@ -115,41 +77,54 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
         });
     };
 
+    const bankRows = useMemo(() => (bank.data ?? []).map(bankToRow), [bank.data]);
+    const glRows = useMemo(() => (gl.data ?? []).map(glToRow), [gl.data]);
+    const rowsById = useMemo(() => new Map<string, TxRow>([...bankRows, ...glRows].map(r => [r.id, r])), [bankRows, glRows]);
+
     const onEvidence = (item: Item, evidence: EvidenceRef) => {
         setHighlight(item.id);
-        setApprovalOpen(false);
-        toast(`Highlighted ${item.kind.replaceAll('_', ' ')} item for ${evidence.id}`);
+        requestAnimationFrame(() => document.querySelector(`[data-row-id="${CSS.escape(evidence.id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     };
     const onRowClick = (row: TxRow) => setHighlight(current => nextHighlight(current, row.itemId));
     const pending = needsApproval(items.data ?? []);
-    const shown = (items.data ?? []).filter(i => i.status !== 'matched');
+    const reviewable = (items.data ?? []).filter(i => i.status !== 'matched');
+    const report = run.data?.status === 'completed'
+        ? <Button asChild className="mt-2"><Link to={`/report/${encodeURIComponent(run.data.id)}`}>Open report</Link></Button>
+        : null;
 
-    return (
-        <>
-            <div className="flex flex-wrap items-end gap-3" role="group" aria-label="Run controls">
-                <label className="flex flex-col text-xs text-muted-foreground">Dataset
+    const controls = (
+        <div className="flex flex-wrap items-end gap-2" role="group" aria-label="Run controls">
+            {datasets.length > 1 && (
+                <label className="flex flex-col gap-0.5 text-[11px] text-faint">Dataset
                     <select className={field} value={dataset.id} disabled={running} onChange={e => { setDatasetId(e.target.value); setRange(null); setStartedRunId(null); setHighlight(null); }}>
                         {datasets.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                     </select>
                 </label>
-                <label className="flex flex-col text-xs text-muted-foreground">From
-                    <input type="date" className={field} value={from} max={to} disabled={running} onChange={e => e.target.value && setRange({ from: e.target.value, to })} />
-                </label>
-                <label className="flex flex-col text-xs text-muted-foreground">To
-                    <input type="date" className={field} value={to} min={from} disabled={running} onChange={e => e.target.value && setRange({ from, to: e.target.value })} />
-                </label>
-                <Button disabled={running} onClick={start}>{running ? 'Running...' : 'Run agents'}</Button>
-                <ResetDemoButton disabled={running} onReset={() => { setDismissedRunId(runId ?? null); setStartedRunId(null); setHighlight(null); lastSignature.current = null; refreshedRunId.current = null; }} />
-                <Button variant="secondary" className="ml-auto" disabled={pending.length === 0} data-slot="approval-drawer-trigger" data-open={approvalOpen}
-                    onClick={() => setApprovalOpen(true)}>Needs approval ({pending.length})</Button>
-            </div>
+            )}
+            <label className="flex flex-col gap-0.5 text-[11px] text-faint">From
+                <input type="date" className={field} value={from} max={to} disabled={running} onChange={e => e.target.value && setRange({ from: e.target.value, to })} />
+            </label>
+            <label className="flex flex-col gap-0.5 text-[11px] text-faint">To
+                <input type="date" className={field} value={to} min={from} disabled={running} onChange={e => e.target.value && setRange({ from, to: e.target.value })} />
+            </label>
+            <ResetDemoButton disabled={running} onReset={() => { setDismissedRunId(runId ?? null); setStartedRunId(null); setHighlight(null); lastSignature.current = null; refreshedRunId.current = null; }} />
+            <Button size="lg" className="px-4 font-semibold" disabled={running} onClick={start}><Play className="fill-current" aria-hidden="true" />{running ? 'Running…' : 'Run agents'}</Button>
+        </div>
+    );
 
-            <ApprovalDrawer open={approvalOpen} onOpenChange={setApprovalOpen} items={pending} onEvidence={onEvidence} />
+    return (
+        <Page title="Bank reconciliation" subtitle="Agents match what they can. You review the items they could not close." actions={controls}>
+            <QueryState query={statement}>{s => <KpiStrip statement={s} run={run.data} pending={pending.length} />}</QueryState>
 
-            {!runId && <p className="text-sm text-muted-foreground">No run yet. Click Run agents.</p>}
-            {runId && run.isPending && <div role="status" aria-label="Loading run" className="space-y-2"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-16 w-full" /></div>}
-            {run.data && <RunStatusLine run={run.data} />}
-            {run.data && <RunStepper run={run.data} />}
+            {!runId && (
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-card px-6 py-10 text-center">
+                    <h2 className="text-base font-semibold">No run yet</h2>
+                    <p className="max-w-[52ch] text-sm text-muted-foreground">Run the agents to match the bank statement to the ledger. Anything policy does not allow them to close lands in your approval queue with a draft entry.</p>
+                    <Button className="mt-1" disabled={running} onClick={start}><Play className="fill-current" aria-hidden="true" />Run agents</Button>
+                </div>
+            )}
+            {runId && run.isPending && <div role="status" aria-label="Loading run" className="space-y-2"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-24 w-full" /></div>}
+            {run.data && <RunPipeline run={run.data} />}
             {run.isError && (
                 <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
                     Could not load the run: {run.error.message}
@@ -157,42 +132,44 @@ function Workspace({ datasets }: { datasets: Dataset[] }) {
                 </div>
             )}
 
-            <QueryState query={statement}>{s => <StatementCard statement={s} />}</QueryState>
-
             {runId && (
-                <section aria-label="Items" className="space-y-2">
-                    <h2 className="text-sm font-medium">Items to review <span className="font-normal text-muted-foreground">(click one to highlight its rows; decide in the approval drawer)</span></h2>
-                    <QueryState query={items} isEmpty={() => shown.length === 0} emptyMessage="No items need attention.">
-                        {() => <ul className="grid gap-2 md:grid-cols-2">{shown.map(item => <ItemButton key={item.id} item={item} active={highlight === item.id} onSelect={() => setHighlight(h => nextHighlight(h, item.id))} />)}</ul>}
-                    </QueryState>
-                </section>
+                <QueryState query={items}>
+                    {() => <ApprovalInbox items={reviewable} rows={rowsById} onSelect={item => setHighlight(item.id)} onEvidence={onEvidence} footer={report} />}
+                </QueryState>
             )}
 
+            <details className="group rounded-lg border bg-card shadow-card">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                    Statement detail
+                    <span className="font-normal text-muted-foreground">Bank side, book side and every reconciling line</span>
+                    <ChevronDown className="ml-auto size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <div className="border-t p-4"><QueryState query={statement}>{s => <StatementCard statement={s} />}</QueryState></div>
+            </details>
+
             <div className="grid gap-4 xl:grid-cols-2">
-                <section aria-label="Bank transactions" className="min-w-0 space-y-2">
-                    <h2 className="text-sm font-medium">Bank</h2>
+                <section aria-label="Bank transactions" className="min-w-0 rounded-lg border bg-card shadow-card">
+                    <h2 className="border-b px-4 py-3 text-sm font-semibold">Bank</h2>
                     <QueryState query={bank} isEmpty={list => list.length === 0} emptyMessage="No bank transactions in this range.">
-                        {list => <TransactionTable rows={list.map(bankToRow)} typeLabel="Type" selectable={false} highlightItemId={highlight} onRowClick={onRowClick} />}
+                        {() => <TransactionTable rows={bankRows} typeLabel="Type" selectable={false} highlightItemId={highlight} onRowClick={onRowClick} />}
                     </QueryState>
                 </section>
-                <section aria-label="Ledger entries" className="min-w-0 space-y-2">
-                    <h2 className="text-sm font-medium">Ledger</h2>
+                <section aria-label="Ledger entries" className="min-w-0 rounded-lg border bg-card shadow-card">
+                    <h2 className="border-b px-4 py-3 text-sm font-semibold">Ledger</h2>
                     <QueryState query={gl} isEmpty={list => list.length === 0} emptyMessage="No ledger entries in this range.">
-                        {list => <TransactionTable rows={list.map(glToRow)} typeLabel="Method" selectable={false} highlightItemId={highlight} onRowClick={onRowClick} />}
+                        {() => <TransactionTable rows={glRows} typeLabel="Method" selectable={false} highlightItemId={highlight} onRowClick={onRowClick} />}
                     </QueryState>
                 </section>
             </div>
-        </>
+        </Page>
     );
 }
 
 export function ReconcilePage() {
     const datasets = useDatasets();
     return (
-        <Page title="Reconcile" subtitle="Run the agents, then review what needs a decision.">
-            <QueryState query={datasets} isEmpty={list => list.length === 0} emptyMessage="No datasets available.">
-                {list => <Workspace datasets={list} />}
-            </QueryState>
-        </Page>
+        <QueryState query={datasets} isEmpty={list => list.length === 0} emptyMessage="No datasets available.">
+            {list => <Workspace datasets={list} />}
+        </QueryState>
     );
 }

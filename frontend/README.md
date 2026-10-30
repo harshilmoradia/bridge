@@ -24,7 +24,7 @@ Follow [the Supabase setup guide](../docs/supabase-setup.md) for project creatio
 
 ## Demo behavior
 
-**Explore demo** provides sample access without an account, including when Supabase is not configured. Signed-in users currently see the same sample reconciliation features. Chat and document uploads are simulated. File contents are not parsed, approvals do not post to an ERP, and transactions are not yet stored in Supabase.
+Visitors land straight in the **demo workspace** (sample data, no account). **Sign in** in the top bar opens the account screen when Supabase is configured; **Back to the demo** returns. Signed-in users currently see the same sample reconciliation features. Chat and document uploads are simulated. File contents are not parsed, approvals do not post to an ERP, and transactions are not yet stored in Supabase.
 
 Demo transactions and audit history are saved under `bridge-demo-ledger-v1` in this browser's local storage. Clear that key to reset the sample data. Invalid stored data falls back to the initial samples. If storage is unavailable, the app remains usable and explains that changes last only for the current session.
 
