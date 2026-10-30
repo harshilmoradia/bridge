@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { keys, writeStatement } from './keys';
 import { RUN_POLL_MS, isRunActive } from '../lib/workspace';
-import type { CreateRunRequest, DecisionRequest, Item, RangeParams, ReconStatus } from './types';
+import { isSeeded } from '../lib/rules';
+import type { CreateRunRequest, DecisionRequest, ForgetAllRulesResponse, Item, RangeParams, ReconStatus, Rule } from './types';
 
 export { keys };
 
@@ -65,6 +66,26 @@ export function useDecideItem() {
         ]),
     });
 }
+
+// Forget one learned rule, or all of them. Optimistic: the rows leave the list at once and come back if the call fails.
+// Items a rule already closed keep their history, so only the rules list (and the audit) refetch.
+function useOptimisticRules<V, R>(mutationFn: (vars: V) => Promise<R>, keep: (rule: Rule, vars: V) => boolean) {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn,
+        onMutate: async (vars: V) => {
+            await client.cancelQueries({ queryKey: keys.rules });
+            const snapshot = client.getQueryData<Rule[]>(keys.rules);
+            client.setQueryData<Rule[]>(keys.rules, old => old?.filter(r => keep(r, vars)));
+            return { snapshot };
+        },
+        onError: (_error, _vars, context) => { if (context?.snapshot) client.setQueryData(keys.rules, context.snapshot); },
+        onSettled: () => Promise.all([client.invalidateQueries({ queryKey: keys.rules }), client.invalidateQueries({ queryKey: ['run-audit'] })]),
+    });
+}
+
+export const useForgetRule = () => useOptimisticRules((id: number) => api.forgetRule(id), (rule, id) => rule.id !== id);
+export const useForgetAllRules = () => useOptimisticRules<void, ForgetAllRulesResponse>(() => api.forgetAllRules(), rule => isSeeded(rule));
 
 // No invalidation here: the caller clears page state first (afterReset), then invalidates, so the deleted run is never refetched.
 export function useResetDemo() {

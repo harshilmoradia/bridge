@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { afterReset, resetErrorText, resetSuccessText } from '../src/lib/demoReset.ts';
+import { afterReset, resetErrorText, resetKeepsText, resetSuccessText } from '../src/lib/demoReset.ts';
 
-test('success text shows both counts with plurals', () => {
-    assert.equal(resetSuccessText({ runs_deleted: 3, rules_deleted: 1 }), 'Demo reset: 3 runs and 1 learned rule deleted.');
-    assert.equal(resetSuccessText({ runs_deleted: 1, rules_deleted: 0 }), 'Demo reset: 1 run and 0 learned rules deleted.');
+test('success text uses rules_kept with plurals', () => {
+    assert.equal(resetSuccessText({ runs_deleted: 3, rules_kept: 1 }), 'Demo reset: 3 runs deleted. 1 learned rule kept for the next run.');
+    assert.equal(resetSuccessText({ runs_deleted: 1, rules_kept: 2 }), 'Demo reset: 1 run deleted. 2 learned rules kept for the next run.');
+    assert.equal(resetSuccessText({ runs_deleted: 1, rules_kept: 0 }), 'Demo reset: 1 run deleted. No learned rules to keep.');
+});
+
+test('reset dialog says learned rules are kept', () => {
+    assert.equal(resetKeepsText(3), 'Your 3 learned rules are kept. The next run will use them.');
+    assert.equal(resetKeepsText(1), 'Your 1 learned rule is kept. The next run will use it.');
+    assert.match(resetKeepsText(0), /no learned rules yet/);
 });
 
 test('error codes map to friendly text', () => {

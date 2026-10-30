@@ -185,7 +185,8 @@ class LLMClient:
                 break
             except TimeoutError as exc:
                 # Not retried: a stalled call already cost the full timeout.
-                raise LLMUnavailableError(f"{tier} call timed out after {timeout:g}s") from exc
+                raise LLMUnavailableError(f"{tier} call timed out after {timeout:g}s",
+                                          diagnostic_code=f"{tier}_timeout") from exc
             except LLMUnavailableError:
                 # Network blips (ReadError, 5xx) seen live under parallel load: retry once.
                 if attempt == 2:

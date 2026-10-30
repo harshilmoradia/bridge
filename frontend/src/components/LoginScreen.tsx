@@ -7,17 +7,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
     const { theme, toggleTheme } = useTheme();
     return (
         <div className="min-h-dvh flex items-center justify-center bg-background text-foreground relative px-4 py-20 fade-in">
-            <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[10%] left-[20%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/10 blur-[100px]" />
-                <div className="absolute bottom-[10%] right-[20%] w-[30vw] h-[30vw] rounded-full bg-pink-500/10 blur-[100px]" />
-            </div>
-            <div className="w-full max-w-md bg-card p-6 sm:p-10 rounded-[2rem] shadow-xl z-10 border border-border">
-                <div aria-hidden="true" className="w-14 h-14 rounded-2xl bg-primary mx-auto flex items-center justify-center shadow-md mb-5">
-                    <i className="ri-infinity-line text-primary-foreground font-bold text-3xl" />
+            <div className="w-full max-w-sm bg-card p-6 sm:p-8 rounded-xl shadow-card z-10 border border-border">
+                <div aria-hidden="true" className="size-10 rounded-lg bg-foreground text-background mx-auto grid place-items-center mb-5">
+                    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M2 17c4-8 16-8 20 0M6 17v-4.5M12 17v-6.5M18 17v-4.5M2 17h20" /></svg>
                 </div>
                 {children}
             </div>
-            <button type="button" aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'} onClick={toggleTheme} className="absolute top-6 right-6 w-10 h-10 rounded-full bg-card flex items-center justify-center hover:bg-muted border border-border">
+            <button type="button" aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'} onClick={toggleTheme} className="absolute top-6 right-6 w-9 h-9 rounded-md bg-card flex items-center justify-center hover:bg-muted border border-border">
                 <i aria-hidden="true" className={theme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'} />
             </button>
         </div>
@@ -42,7 +38,7 @@ const headings: Record<AuthMode, string> = {
 const actions: Record<AuthMode, string> = {
     login: 'Sign in', signup: 'Create account', reset: 'Send reset link', update: 'Save new password',
 };
-const inputClass = 'w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50';
+const inputClass = 'w-full bg-card border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50';
 
 interface PasswordInputProps {
     id: string;
@@ -98,7 +94,7 @@ export function LoginScreen({ configured, mode, busy, error, notice, onModeChang
         <AuthShell>
             <h1 className="text-2xl font-bold tracking-tight text-center">{configured ? headings[mode] : 'Welcome to Bridge'}</h1>
             <p className="text-sm text-muted-foreground mt-2 mb-6 text-center">
-                {configured ? (mode === 'reset' ? 'We’ll email you a link to reset your password.' : 'Your reconciliation workspace') : 'Account sign-in is not available yet. Explore the sample workspace below.'}
+                {configured ? (mode === 'reset' ? 'We’ll email you a link to reset your password.' : 'Sign in to reconcile your own books.') : 'Account sign-in is not available yet. Explore the sample workspace below.'}
             </p>
             {(validationError || error) && <p role="alert" className="text-sm text-destructive mb-4">{validationError || error}</p>}
             {notice && <p role="status" className="text-sm text-muted-foreground mb-4">{notice}</p>}
@@ -131,7 +127,7 @@ export function LoginScreen({ configured, mode, busy, error, notice, onModeChang
                                         : fields.confirmPassword ? 'Enter your password above.' : 'Re-enter your password to confirm.'}
                             </p>
                         </div>}
-                        <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold rounded-xl py-3 hover:opacity-90">{busy ? 'Please wait…' : actions[mode]}</button>
+                        <button type="submit" className="w-full bg-primary text-primary-foreground font-semibold rounded-md py-2.5 hover:opacity-90">{busy ? 'Please wait…' : actions[mode]}</button>
                     </fieldset>
                     {mode === 'login' ? <div className="flex justify-between gap-3 text-sm">
                         <button type="button" disabled={busy} onClick={() => onModeChange('reset')} className="text-primary hover:underline">Forgot password?</button>
@@ -140,8 +136,8 @@ export function LoginScreen({ configured, mode, busy, error, notice, onModeChang
                 </form>
             )}
             {mode !== 'update' && <div className="mt-6 border-t border-border pt-5">
-                <button type="button" disabled={busy} onClick={onDemo} className="w-full bg-muted text-foreground font-semibold rounded-xl py-3 border border-border hover:bg-muted/80">Explore demo</button>
-                <p className="text-xs text-muted-foreground mt-3 text-center">Sample transactions and simulated replies. No ERP posting.</p>
+                <button type="button" disabled={busy} onClick={onDemo} className="w-full text-foreground font-semibold rounded-md py-2.5 border border-border hover:bg-muted">Back to the demo</button>
+                <p className="text-xs text-muted-foreground mt-3 text-center">The demo uses sample transactions. Nothing posts to an ERP.</p>
             </div>}
         </AuthShell>
     );

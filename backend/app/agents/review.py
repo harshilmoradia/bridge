@@ -66,11 +66,15 @@ async def critic(
         return Critique(ok=True), None
 
 
-def evidence(item: WorkItem, books: Books, rule_ids=()) -> list[Evidence]:
+def evidence(item: WorkItem, books: Books, rule_ids=(), *, rule_applied: bool = False) -> list[Evidence]:
+    """The rows, the policy list naming the kind, and any rules found. When a rule closed the item,
+    `always_escalate_kinds` is left out: the rule is the exception that overrode it (B-14)."""
     ev = [Evidence(type="bank_transaction", id=i) for i in item.bank_ids]
     ev += [Evidence(type="gl_entry", id=i) for i in item.gl_ids]
     p = books.policy
     for name in ("auto_resolve_kinds", "reconciling_item_kinds", "always_escalate_kinds"):
+        if rule_applied and name == "always_escalate_kinds":
+            continue
         if item.kind in getattr(p, name):
             ev.append(Evidence(type="policy", id=name, note=item.kind))
     ev += [Evidence(type="rule", id=str(r)) for r in rule_ids]
@@ -94,7 +98,7 @@ def _finish(item: WorkItem, books: Books, *, passed: bool, problems: list[str],
         id=item.id, kind=item.kind, resolution=resolution, status=status,
         bank_ids=list(item.bank_ids), gl_ids=list(item.gl_ids),
         amount_delta=item.amount_delta, reasoning=reasoning,
-        evidence=evidence(item, books, rule_ids), flags=flags,
+        evidence=evidence(item, books, rule_ids, rule_applied=rule is not None), flags=flags,
         model=res.stats.model if res and res.stats else None,
         confidence=res.confidence if res else None,
         entry=entry if passed else None,

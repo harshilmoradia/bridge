@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { formatLatency, formatTokens, groupSteps, stepDetail, stepsDone, STEP_STATUS_LABEL } from '../src/lib/stepper.ts';
+import { fallbackWarning, formatLatency, formatTokens, groupSteps, stepDetail, stepsDone, STEP_STATUS_LABEL } from '../src/lib/stepper.ts';
 import { MockRunPoller, mockStageCount, runAtStage } from '../src/api/mockProgress.ts';
 import type { Run } from '../src/api/types.ts';
 
@@ -98,4 +98,11 @@ test('the mock run finishes after one poll per stage, then stays completed', () 
     for (let n = 0; n < mockStageCount(done); n++) assert.equal(poller.poll(done, 'r').status, 'running');
     assert.equal(poller.active, false);
     assert.equal(poller.poll(done, 'r').status, 'completed');
+});
+
+test('a completed run with a failed stage warns that results came from fallbacks', () => {
+    assert.equal(fallbackWarning(done), null);
+    const degraded = { ...done, steps: done.steps.map(s => s.id === 'classify' ? { ...s, status: 'failed' as const } : s) };
+    assert.match(fallbackWarning(degraded) ?? '', /Classify leftovers/);
+    assert.equal(fallbackWarning({ ...degraded, status: 'failed' }), null);  // a failed run already says so
 });

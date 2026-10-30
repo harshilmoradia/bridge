@@ -1,8 +1,8 @@
 """Human decisions on escalated items: override checks, the audit row and remembered rules.
 
-`write_audit` and `save_rule` are what the `item-decided` Inngest function runs, one step each;
-`POST /items/{id}/decision` runs them inline when Inngest is unreachable, so a decision is never
-left without its audit row.
+`POST /items/{id}/decision` runs `save_rule` inline (B-14), so its response can say whether a rule
+was saved. `write_audit` is the `item-decided` Inngest function's one step; the route runs it inline
+when Inngest is unreachable, so a decision is never left without its audit row.
 
 A human override is checked for structure only (accounts in the chart, two different accounts,
 a positive amount in cents, a memo). It is not held to the agent rule that the amount must close
@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.agents.context import load_accounts
+from app.agents.decide import RULE_EXCLUDED_KINDS
 from app.agents.rules import description_pattern, direction, row_pattern  # noqa: F401  (re-exported)
 from app.recon.models import Dataset
 from app.recon.run_store import Decision, RunStore, item_not_found
@@ -44,15 +45,28 @@ def rule_for(item: Item, dataset: Dataset) -> tuple[dict[str, Any], dict[str, An
     counterparty when it is a business, and the `direction` (out or in) of the item's amount. Action:
     the approved entry's accounts and amount. B-13 applies a rule only when all of these match
     (`agents/rules.matching_rule`); the text came from untrusted rows, so it is only ever compared.
+
+    None for a kind in `RULE_EXCLUDED_KINDS` (no rule could ever apply to it) and for an
+    injection-flagged item (its text may have been written to be learned). `learnable` is this
+    function's answer, so the UI's "remember" offer and what `save_rule` saves never disagree.
     """
     entry = item.proposed_entry
-    if entry is None:
+    if entry is None or item.kind in RULE_EXCLUDED_KINDS or "injection_flagged" in item.flags:
         return None
     pattern = row_pattern(item.bank_ids, item.gl_ids, dataset)
     if not pattern:
         return None
     pattern["direction"] = direction(item.amount_delta)
     return pattern, {"debit": entry.debit_account, "credit": entry.credit_account, "amount": str(entry.amount)}
+
+
+def learnable(item: Item, dataset: Dataset) -> bool:
+    """True when approving this item with "remember" would save a rule (`Item.learnable`)."""
+    return rule_for(item, dataset) is not None
+
+
+def with_learnable(items: list[Item], dataset: Dataset) -> list[Item]:
+    return [i.model_copy(update={"learnable": learnable(i, dataset)}) for i in items]
 
 
 async def _load(store: RunStore, item_id: str, decision_id: str) -> tuple[Item, Decision]:
@@ -74,10 +88,10 @@ async def write_audit(store: RunStore, *, item_id: str, decision_id: str, run_id
 
 
 async def save_rule(store: RunStore, dataset: Dataset, *, item_id: str, decision_id: str) -> int | None:
-    """Store a rule when the reviewer approved with "remember"; rejections teach nothing, and neither
-    does an injection-flagged item (its text may have been written to be learned)."""
+    """Store a rule when the reviewer approved with "remember" and `rule_for` finds one to learn;
+    rejections teach nothing. Returns the new rule's id, else None."""
     item, d = await _load(store, item_id, decision_id)
-    if not d.remember or d.decision != "approve" or "injection_flagged" in item.flags:
+    if not d.remember or d.decision != "approve":
         return None
     learned = rule_for(item, dataset)
     if learned is None:

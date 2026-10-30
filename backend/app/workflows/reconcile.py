@@ -200,12 +200,17 @@ def run_counts(dataset: Dataset, items: Sequence[Item]) -> RunCounts:
 
 def _finished(log_: StepLog, started: datetime, finished: datetime, wall_ms: int) -> RunStep:
     # LLM stages carry their summed call latency; code stages their own wall time and no tokens.
+    # A stage whose every model call failed is failed, like a template report: its rows still
+    # went on with code defaults, so the run completes, but the stepper must not show it green.
     llm = log_.tier != "code"
+    dead = log_.failed_calls > 0 and log_.calls == 0
+    error = ApiError(code="model_unavailable", message=(
+        f"All {log_.failed_calls} model calls failed; rows fell back to code defaults")) if dead else None
     return _step(
-        log_.id, "completed", model=log_.model, started_at=started, finished_at=finished,
+        log_.id, "failed" if dead else "completed", model=log_.model, started_at=started, finished_at=finished,
         latency_ms=log_.latency_ms if llm else wall_ms,
         tokens_in=log_.tokens_in if llm else None, tokens_out=log_.tokens_out if llm else None,
-        output_summary=log_.summary,
+        output_summary=log_.summary, error=error,
     )
 
 
@@ -390,7 +395,7 @@ async def reconcile_run(ctx: inngest.Context) -> dict[str, Any]:
             refs = item_refs(await store.list_items(run_id))
             run = await store.get_run(run_id)
             facts = report_facts(build_statement(data, run_id, refs), run.counts, refs)
-            out = await write_report(get_llm_client(get_settings()), facts)
+            out = await write_report(get_llm_client(get_settings()), facts, run_id=run_id)
             # The row first: if it cannot be written, the report is not saved either, so a
             # failed step never sits beside a saved model report.
             await store.save_steps(run_id, [report_row(out, started, _now())])

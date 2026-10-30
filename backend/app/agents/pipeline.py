@@ -19,6 +19,7 @@ from app.agents.decide import decide
 from app.agents.fuzzy_match import fuzzy_match
 from app.agents.models import AgentItem, DraftEntry, StepLog, WorkItem
 from app.agents.review import evidence, review_item
+from app.core.errors import AppError
 from app.guardrails import screen_text
 from app.llm import CallStats, LLMClient
 from app.recon.matcher import load_match_policy, match
@@ -78,14 +79,44 @@ def _match_item(m: Match, books: Books, source: str) -> AgentItem:
         evidence=evidence(work, books), flags=list(work.flags), entry=entry)
 
 
-def _log(step_id: str, tier: str, stats: Iterable[CallStats], summary: str) -> StepLog:
+class _Tally:
+    """An LLMClient that counts the calls that raised. The agents catch those errors and fall back
+    to code defaults, so without this a dead model looks like a quiet run. Counted by method:
+    resolve uses tools, the critic JSON, so one tally covers the stages that interleave."""
+
+    def __init__(self, client: LLMClient) -> None:
+        self._client = client
+        self.failed: Counter[str] = Counter()
+
+    def __getattr__(self, name: str):
+        return getattr(self._client, name)
+
+    async def complete_json(self, *args, **kwargs):
+        try:
+            return await self._client.complete_json(*args, **kwargs)
+        except AppError:
+            self.failed["json"] += 1
+            raise
+
+    async def complete_tools(self, *args, **kwargs):
+        try:
+            return await self._client.complete_tools(*args, **kwargs)
+        except AppError:
+            self.failed["tools"] += 1
+            raise
+
+
+def _log(step_id: str, tier: str, stats: Iterable[CallStats], summary: str, failed: int = 0,
+         note_failed: bool = True) -> StepLog:
     stats = list(stats)
+    if failed and note_failed:
+        summary += f"; {failed} of {failed + len(stats)} model calls failed"
     return StepLog(
         id=step_id, tier=tier, model=stats[0].model if stats else None,
         latency_ms=sum(s.latency_ms for s in stats),
         tokens_in=sum(s.prompt_tokens for s in stats),
         tokens_out=sum(s.completion_tokens for s in stats),
-        calls=len(stats), summary=summary)
+        calls=len(stats), failed_calls=failed, summary=summary)
 
 
 async def run_agents(
@@ -123,10 +154,11 @@ async def run_agents(
                       summary=f"{len(result.matches)} matches, {len(result.candidates)} candidate groups"))
 
     await notify("match-fuzzy", None)
-    fuzzy = await asyncio.gather(*(fuzzy_match(client, g, base) for g in result.candidates))
+    tally = _Tally(client)
+    fuzzy = await asyncio.gather(*(fuzzy_match(tally, g, base) for g in result.candidates))
     picked = [m for ms, _ in fuzzy for m in ms]
     fuzzy_stats = [s for _, ss in fuzzy for s in ss]
-    await end(_log("match-fuzzy", "nano", fuzzy_stats, f"{len(picked)} pairs picked"))
+    await end(_log("match-fuzzy", "nano", fuzzy_stats, f"{len(picked)} pairs picked", tally.failed["json"]))
 
     all_matches = list(result.matches) + picked
     matched_gl = frozenset(g for m in all_matches for g in m.gl_ids)
@@ -136,17 +168,20 @@ async def run_agents(
     left_gl = [g.entry_id for g in dataset.gl if g.entry_id not in used]
 
     await notify("classify", None)
-    work, classify_stats = await classify(client, left_bank, left_gl, books)
+    tally = _Tally(client)
+    work, classify_stats = await classify(tally, left_bank, left_gl, books)
     work = [w.model_copy(update={"flags": _flags(books, w.bank_ids, w.gl_ids)}) for w in work]
     by_code = sum(w.source == "code" for w in work)
     await end(_log("classify", "nano", classify_stats,
-                   f"{len(work)} items classified: {by_code} by code, {len(work) - by_code} by Nano"))
+                   f"{len(work)} items classified: {by_code} by code, {len(work) - by_code} by Nano",
+                   tally.failed["json"]))
 
     gate = asyncio.Semaphore(concurrency)
+    tally = _Tally(client)
 
     async def one(w: WorkItem):
         async with gate:
-            return await review_item(client, w, books, use_critic=use_critic)
+            return await review_item(tally, w, books, use_critic=use_critic)
 
     # Resolve and the critic interleave per item (critic feedback goes back into resolve), so the
     # two stages start together and end together.
@@ -157,10 +192,12 @@ async def run_agents(
     critic_stats = [s for _, _, cs in reviewed for s in cs]
     ultra = sum(s.tier == "ultra" for s in resolve_stats)
     await end(_log("resolve", "super", resolve_stats,
-                   f"{len(work)} items, {len(resolve_stats)} attempts, {ultra} on Ultra"))
+                   f"{len(work)} items, {len(resolve_stats)} attempts, {ultra} on Ultra",
+                   tally.failed["tools"]))
     await end(_log("review", "super", critic_stats,
                    f"{sum(not i.checks_passed for i, _, _ in reviewed)} failed checks, "
-                   f"{sum(i.critic_skipped for i, _, _ in reviewed)} critic calls failed"))
+                   f"{sum(i.critic_skipped for i, _, _ in reviewed)} critic calls failed",
+                   tally.failed["json"], note_failed=False))
 
     await notify("decide", None)
     items = [_match_item(m, books, "rules") for m in result.matches]

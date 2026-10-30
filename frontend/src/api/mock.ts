@@ -7,14 +7,17 @@ import runCompletedFixture from './fixtures/run-completed.json';
 import { MOCK_REPORT } from './mockReport';
 import itemsFixture from './fixtures/items.json';
 import auditFixture from './fixtures/run-audit.json';
-import { applyRules } from '../lib/rules';
+import { applyRules, isSeeded, mockLearnable } from '../lib/rules';
 import { postToStatement, settleRuleItems } from '../lib/statementPost';
 import rulesFixture from './fixtures/rules.json';
 import { ApiError, type RequestOptions } from './http';
 import { MOCK_EXTRA_ROWS } from './mockExtras';
 import { MockRunPoller, mockStageCount } from './mockProgress';
 import { fromCents, toCents } from '../lib/cents';
-import type { AuditEntry, BankTransaction, Run, DecisionRequest, DecisionResponse, DemoResetResponse, GlEntry, Item, ReconStatus, Rule, Statement } from './types';
+import type {
+    AuditEntry, BankTransaction, Run, DecisionRequest, DecisionResponse, DemoResetResponse, ForgetAllRulesResponse, ForgetRuleResponse,
+    GlEntry, Item, ReconStatus, Rule, Statement,
+} from './types';
 
 // The fixture's short report is replaced here with the fuller mock one; docs fixtures stay untouched.
 const runCompleted = { ...runCompletedFixture, report: MOCK_REPORT };
@@ -28,15 +31,19 @@ const initialStatement = (): Statement => ({ ...copy<Statement>(statementFixture
 const extraItems = (): Item[] => MOCK_EXTRA_ROWS.map(([n, kind, delta, account, memo]) => ({
     id: `0b6d1f1e-6c55-4f0a-8a51-1d1d7f3f${n}`, run_id: runCompleted.id, kind, resolution: 'escalate', status: 'needs_approval' as const,
     bank_ids: [], gl_ids: [], amount_delta: delta, reasoning: `Mock-only item (${kind.replaceAll('_', ' ')}) so the demo difference can reach 0.00.`,
-    evidence: [{ type: 'policy', id: 'always_escalate_kinds', note: null }], flags: [], model: null, confidence: null, rule_id: null,
+    evidence: [{ type: 'policy', id: 'always_escalate_kinds', note: null }], flags: [], model: null, confidence: null, rule_id: null, learnable: false,
     proposed_entry: { id: `5c0e7d3a-mock-${n}`, debit_account: delta.startsWith('-') ? account : '1010', credit_account: delta.startsWith('-') ? '1010' : account, amount: delta.replace('-', ''), memo, status: 'draft' },
     created_at: '2026-10-26T15:01:00Z',
 }));
-const initialItems = (): Item[] => [...copy<Item[]>(itemsFixture), ...extraItems()];
+const withLearnable = (list: Item[]): Item[] => list.map(i => ({ ...i, learnable: mockLearnable(i) }));
+const initialItems = (): Item[] => withLearnable([...copy<Item[]>(itemsFixture), ...extraItems()]);
 let items = initialItems();
-let rules = copy<Rule[]>(rulesFixture);
-// Rules learned by approving with remember in this mock session; the next run applies them. The seeded fixture rule is display-only.
+// Seeded fixture rules are display-only and can't be forgotten. Rules learned by approving with remember survive a
+// reset (B-14), as on the real backend; the next run applies them. Ids are never reused, like a Postgres serial.
+const seededRules = (): Rule[] => copy<Rule[]>(rulesFixture);
 let learnedRules: (Rule & { amount_sign: 1 | -1 })[] = [];
+let nextRuleId = Math.max(0, ...seededRules().map(r => r.id)) + 1;
+const allRules = (): Rule[] => [...seededRules(), ...learnedRules.map(({ amount_sign: _sign, ...rule }) => rule)];
 let statement = initialStatement();
 const initialAudit = () => copy<AuditEntry[]>(auditFixture);
 let audit = initialAudit();
@@ -67,17 +74,31 @@ function route(path: string, method: string, query: Record<string, string | unde
     if (method === 'GET' && path === '/bank-transactions') return withItems(bankTransactions as BankTransaction[], r => r.txn_id, 'bank_ids').filter(r => inRange(r.posted_date, query.from, query.to));
     if (method === 'GET' && path === '/gl-entries') return withItems(glEntries as GlEntry[], r => r.entry_id, 'gl_ids').filter(r => inRange(r.date, query.from, query.to));
     if (method === 'GET' && path === '/statement') return statement;
-    if (method === 'GET' && path === '/rules') return rules;
+    if (method === 'GET' && path === '/rules') return allRules();
+    if (method === 'DELETE' && path === '/rules') {
+        const response: ForgetAllRulesResponse = { rules_deleted: learnedRules.length };
+        learnedRules = [];
+        return response;
+    }
+    const ruleMatch = /^\/rules\/([^/]+)$/.exec(path);
+    if (method === 'DELETE' && ruleMatch) {
+        const id = Number(ruleMatch[1]);
+        const seeded = seededRules().find(r => r.id === id);
+        if (seeded && isSeeded(seeded)) throw new ApiError('rule_not_deletable', `Rule ${id} is seeded and can't be forgotten`, 409);
+        if (!learnedRules.some(r => r.id === id)) throw notFound(`Rule ${ruleMatch[1]}`, 'rule_not_found');
+        learnedRules = learnedRules.filter(r => r.id !== id);
+        const response: ForgetRuleResponse = { rule_id: id };
+        return response;
+    }
     if (method === 'POST' && path === '/demo/reset') {
-        const deletedRules = learnedRules.length;
-        items = initialItems(); poller.reset(runCompleted.id); rules = copy(rulesFixture); learnedRules = []; statement = initialStatement(); audit = initialAudit();
-        const response: DemoResetResponse = { dataset: statement.dataset, runs_deleted: 1, rules_deleted: deletedRules };
+        items = initialItems(); poller.reset(runCompleted.id); statement = initialStatement(); audit = initialAudit();
+        const response: DemoResetResponse = { dataset: statement.dataset, runs_deleted: 1, rules_kept: learnedRules.length };
         return response;
     }
     if (method === 'POST' && path === '/runs') {
         const id = crypto.randomUUID(); // a fresh id per run, as the real API gives
         poller.start(id);
-        items = applyRules(initialItems().map(i => ({ ...i, run_id: id })), learnedRules); audit = [];
+        items = withLearnable(applyRules(initialItems().map(i => ({ ...i, run_id: id })), learnedRules)); audit = [];
         statement = { ...initialStatement(), run_id: id };
         settleRuleItems(statement, items);
         return { id, status: 'queued' };
@@ -105,21 +126,31 @@ function route(path: string, method: string, query: Record<string, string | unde
         if (override && item.proposed_entry) Object.assign(item.proposed_entry, override);
         // The adjustment amount follows an edited entry amount, keeping the sign of the item's delta.
         const delta = override?.amount ? fromCents(toCents(item.amount_delta) < 0n ? -toCents(override.amount) : toCents(override.amount)) : item.amount_delta;
+        const learnable = item.learnable;
         item.status = approved ? 'approved' : 'rejected';
+        item.learnable = false;
         if (item.proposed_entry) item.proposed_entry.status = item.status;
         if (approved) {
             postToStatement(statement, item, delta);
         }
-        if (request.remember) {
-            const learned: Rule & { amount_sign: 1 | -1 } = { id: Math.max(0, ...rules.map(r => r.id)) + 1, kind: item.kind, pattern: { description_regex: item.proposed_entry?.memo ?? item.kind }, action: { debit: item.proposed_entry?.debit_account, credit: item.proposed_entry?.credit_account }, amount_sign: toCents(item.amount_delta) < 0n ? -1 : 1, source_item: item.id, created_by: 'demo@bridge.ai', active: true, created_at: new Date().toISOString() };
-            rules.push(learned); learnedRules.push(learned);
+        // Only an approval of a learnable item saves a rule; anything else returns rule_id null.
+        let ruleId: number | null = null;
+        if (request.remember && approved && learnable && item.proposed_entry) {
+            const entry = item.proposed_entry;
+            const direction = toCents(item.amount_delta) < 0n ? 'out' : 'in';
+            const learned: Rule & { amount_sign: 1 | -1 } = {
+                id: nextRuleId++, kind: item.kind, pattern: { description_regex: entry.memo, direction },
+                action: { debit: entry.debit_account, credit: entry.credit_account, amount: entry.amount }, amount_sign: direction === 'out' ? -1 : 1,
+                source_item: item.id, created_by: 'user:demo@bridge.local', active: true, created_at: new Date().toISOString(), dataset: statement.dataset, origin: 'learned',
+            };
+            learnedRules.push(learned); ruleId = learned.id;
         }
         audit.push({
             id: Math.max(0, ...audit.map(e => e.id)) + 1, run_id: item.run_id, entity_type: 'item', entity_id: item.id, action: request.decision,
             actor: 'user:demo@bridge.local', model: null, created_at: new Date().toISOString(),
             detail: { decision_id: crypto.randomUUID(), remember: Boolean(request.remember), note: request.note ?? null, entry_override: override ?? null },
         });
-        const response: DecisionResponse = copy<DecisionResponse>({ item, statement });
+        const response: DecisionResponse = copy<DecisionResponse>({ item, statement, rule_id: ruleId });
         return response;
     }
     throw notFound(`${method} ${path}`);

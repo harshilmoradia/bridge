@@ -135,6 +135,18 @@ async def test_a_learned_rule_auto_resolves_the_fee_and_only_the_fee() -> None:
     assert all(i.rule_id is None and "rule_applied" not in i.flags for k, i in items.items() if k != "BANK032")
 
 
+async def test_a_rule_closed_item_cites_the_rule_not_the_escalate_policy() -> None:
+    # B-14: "policy: always_escalate_kinds" next to "rule #7" contradicts how the item was closed.
+    client, _ = client_for(Oracle())
+    items = by_first((await run_agents(DATASET, client, rules=[fee_rule()])).items)
+    fee = {(e.type, e.id) for e in items["BANK032"].evidence}
+    assert ("policy", "always_escalate_kinds") not in fee
+    assert {("rule", "7"), ("bank_transaction", "BANK032")} <= fee
+    # An escalated item keeps its policy evidence.
+    interest = {(e.type, e.id) for e in items["BANK042"].evidence}
+    assert ("policy", "always_escalate_kinds") in interest
+
+
 class LowConfidence(Oracle):
     def resolve(self, messages, model):
         out = super().resolve(messages, model)
@@ -202,8 +214,9 @@ def test_a_second_run_auto_resolves_the_fee_after_a_remember_approval(ran, monke
     assert statement["book"]["adjusted_balance"] == "47658.89"
     assert statement["unreconciled_difference"] == "3839.50"
 
-    # Reset clears the learned rule; a third run escalates the fee again.
-    assert http.post("/api/v1/demo/reset").json()["rules_deleted"] == 1
+    # B-14: a reset keeps the learned rule; forgetting it makes a third run escalate the fee again.
+    assert http.post("/api/v1/demo/reset").json()["rules_kept"] == 1
+    assert http.delete(f"/api/v1/rules/{rule.id}").json() == {"rule_id": rule.id}
     third = _second_run(monkeypatch)
     assert "BANK032" in _pending(http, third)
 
@@ -262,18 +275,18 @@ def test_a_remember_approval_of_a_flagged_item_saves_no_rule(ran):
     fee_id = _pending(http, run_id)["BANK032"]["id"]
     items, n = MEMORY_RUNS._find(fee_id)
     items[n] = items[n].model_copy(update={"flags": ["injection_flagged"]})
-    assert _decide(http, fee_id, remember=True).status_code == 200
-    out = _item_decided(events[0].data)
-    assert out.output["rule_id"] is None
+    response = _decide(http, fee_id, remember=True)
+    assert response.status_code == 200 and response.json()["rule_id"] is None
+    _item_decided(events[0].data)
     assert asyncio.run(MEMORY_RUNS.list_rules()) == []
 
 
 def test_a_reject_with_remember_saves_no_rule(ran):
     http, run_id, events = ran
     fee_id = _pending(http, run_id)["BANK032"]["id"]
-    assert http.post(f"/api/v1/items/{fee_id}/decision",
-                     json={"decision": "reject", "remember": True}).status_code == 200
-    assert _item_decided(events[0].data).output["rule_id"] is None
+    response = http.post(f"/api/v1/items/{fee_id}/decision", json={"decision": "reject", "remember": True})
+    assert response.status_code == 200 and response.json()["rule_id"] is None
+    _item_decided(events[0].data)
     assert asyncio.run(MEMORY_RUNS.list_rules()) == []
 
 

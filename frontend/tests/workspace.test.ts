@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { interpolateMoney, isRunActive, isZeroMoney, itemsSignature, shouldRefreshOnComplete, runJustFinished, needsApproval, nextHighlight, defaultRange } from '../src/lib/workspace.ts';
+import { interpolateMoney, isRunActive, isZeroMoney, itemsSignature, shouldRefreshOnComplete, runJustFinished, needsApproval, nextHighlight, defaultRange, closedPercent } from '../src/lib/workspace.ts';
 
 test('nextHighlight toggles and ignores rows without an item', () => {
     assert.equal(nextHighlight(null, 'i1'), 'i1');
@@ -64,4 +64,12 @@ test('runJustFinished fires once on active to finished', () => {
     assert.equal(runJustFinished('running', 'running'), false);
     assert.equal(runJustFinished(undefined, 'completed'), false);
     assert.equal(runJustFinished('running', undefined), false);
+});
+
+test('closedPercent measures how much of the raw difference is gone', () => {
+    assert.equal(closedPercent('864.09', '864.09'), 0);
+    assert.equal(closedPercent('864.09', '0.00'), 100);
+    assert.equal(closedPercent('100.00', '-25.00'), 75);
+    assert.equal(closedPercent('0.00', '0.00'), 100);
+    assert.equal(closedPercent('100.00', '150.00'), 0);
 });

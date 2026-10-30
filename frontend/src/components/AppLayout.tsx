@@ -1,69 +1,94 @@
+import type { LucideIcon } from 'lucide-react';
+import { BookOpen, ChartColumn, Landmark, LogIn, LogOut, Moon, Scale, Sun } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
+import { useDatasets } from '../api/hooks';
 import { useTheme } from '../context/theme';
 import { cn } from '../lib/utils';
+import { LearnedRulesSheet } from './LearnedRules';
+import { Button } from './ui/button';
 
-const NAV = [
-    { to: '/reconcile', icon: 'ri-scales-3-line', label: 'Reconcile' },
-    { to: '/bank', icon: 'ri-bank-line', label: 'Bank' },
-    { to: '/ledger', icon: 'ri-book-2-line', label: 'Ledger' },
-    { to: '/evals', icon: 'ri-bar-chart-grouped-line', label: 'Model tiers' },
+const NAV: { to: string; icon: LucideIcon; label: string }[] = [
+    { to: '/reconcile', icon: Scale, label: 'Reconcile' },
+    { to: '/bank', icon: Landmark, label: 'Bank' },
+    { to: '/ledger', icon: BookOpen, label: 'Ledger' },
+    { to: '/evals', icon: ChartColumn, label: 'Model tiers' },
 ];
+
+function BrandMark() {
+    return (
+        <div aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-foreground text-background">
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M2 17c4-8 16-8 20 0M6 17v-4.5M12 17v-6.5M18 17v-4.5M2 17h20" />
+            </svg>
+        </div>
+    );
+}
+
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('') || '?';
 
 interface AppLayoutProps {
     userName: string;
     userEmail: string;
+    isDemo: boolean;
     signOut: () => void;
     signingOut: boolean;
+    onSignIn?: () => void; // absent when sign-in is not configured
 }
 
-export function AppLayout({ userName, userEmail, signOut, signingOut }: AppLayoutProps) {
+export function AppLayout({ userName, userEmail, isDemo, signOut, signingOut, onSignIn }: AppLayoutProps) {
     const { theme, toggleTheme } = useTheme();
+    const datasets = useDatasets();
+    const dataset = datasets.data?.[0];
     return (
-        <div className="h-screen flex overflow-hidden bg-background text-foreground">
-            <aside className="w-[72px] md:w-60 shrink-0 bg-card border-r border-border flex flex-col">
-                <div className="p-5 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-                        <i aria-hidden="true" className="ri-infinity-line text-primary-foreground text-lg" />
-                    </div>
-                    <span className="hidden md:block font-bold text-xl tracking-tight">Bridge</span>
+        <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row">
+            <aside aria-label="Main" className="flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-card px-3 py-1.5 md:w-54 md:flex-col md:items-stretch md:gap-1 md:overflow-visible md:border-r md:border-b-0 md:px-2.5 md:py-3.5">
+                <div className="flex items-center gap-2.5 pr-2 md:px-2 md:pt-1 md:pb-4">
+                    <BrandMark />
+                    <span className="hidden text-base font-bold tracking-tight md:block">Bridge</span>
                 </div>
-                <nav aria-label="Main" className="flex-1 px-3 space-y-1 overflow-y-auto">
-                    {NAV.map(item => (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            aria-label={item.label}
+                <nav className="flex gap-0.5 md:flex-col">
+                    {NAV.map(({ to, icon: Icon, label }) => (
+                        <NavLink key={to} to={to} aria-label={label} title={label}
                             className={({ isActive }) => cn(
-                                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors justify-center md:justify-start',
-                                isActive ? 'bg-primary/10 text-primary font-bold' : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-                            )}
-                        >
-                            <i aria-hidden="true" className={cn(item.icon, 'text-lg')} />
-                            <span className="hidden md:block">{item.label}</span>
+                                'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                                isActive ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}>
+                            <Icon className="size-[17px] shrink-0" aria-hidden="true" />
+                            <span className="hidden md:inline">{label}</span>
                         </NavLink>
                     ))}
                 </nav>
-                <div className="p-3 border-t border-border space-y-2">
-                    <div className="hidden md:block px-1 min-w-0">
-                        <p className="text-xs font-bold truncate">{userName}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
-                    </div>
-                    <div className="flex flex-col md:flex-row items-center gap-1">
-                        <button type="button" aria-label="Sign out" disabled={signingOut} onClick={signOut} className="flex-1 w-full flex items-center justify-center gap-2 rounded-lg py-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50">
-                            <i aria-hidden="true" className="ri-logout-box-r-line" />
-                            <span className="hidden md:inline">{signingOut ? 'Signing out…' : 'Sign out'}</span>
-                        </button>
-                        <button type="button" aria-label="Toggle theme" onClick={toggleTheme} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted shrink-0">
-                            <i aria-hidden="true" className={theme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'} />
-                        </button>
+                <div className="mt-auto hidden items-center gap-2.5 border-t px-2 pt-3 md:flex">
+                    <div aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">{initials(userName)}</div>
+                    <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold">{userName}</p>
+                        <p className="truncate text-[11px] text-faint">{isDemo ? 'Demo workspace' : userEmail}</p>
                     </div>
                 </div>
             </aside>
-            <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
-                <div className="max-w-6xl mx-auto w-full">
-                    <Outlet />
-                </div>
-            </main>
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <header className="flex items-center gap-2.5 border-b bg-card px-4 py-2.5 sm:px-5">
+                    <p className="flex min-w-0 items-center gap-2 font-semibold">
+                        <span className="truncate">{dataset?.label ?? 'Bridge'}</span>
+                        {dataset && <span className="hidden text-sm font-normal text-muted-foreground sm:inline">· {dataset.period_start} to {dataset.period_end}</span>}
+                    </p>
+                    {isDemo && <span data-testid="demo-pill" className="shrink-0 rounded-full bg-violet-soft px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-violet">Demo data</span>}
+                    <span className="flex-1" />
+                    <Button variant="ghost" size="icon" aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'} onClick={toggleTheme}>
+                        {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+                    </Button>
+                    {isDemo
+                        ? onSignIn && <Button variant="outline" className="shrink-0" onClick={onSignIn}><LogIn aria-hidden="true" />Sign in</Button>
+                        : <Button variant="outline" disabled={signingOut} onClick={signOut}><LogOut aria-hidden="true" />{signingOut ? 'Signing out…' : 'Sign out'}</Button>}
+                </header>
+                <main className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="mx-auto w-full max-w-[1240px] px-4 pt-5 pb-12 sm:px-5">
+                        <Outlet />
+                    </div>
+                </main>
+            </div>
+            <LearnedRulesSheet />
         </div>
     );
 }

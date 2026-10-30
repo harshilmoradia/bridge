@@ -1,5 +1,5 @@
 // Pure logic for the run progress stepper: grouping parallel steps, status labels, latency and token text.
-import type { RunStep, StepStatus } from '../api/types.ts';
+import type { Run, RunStep, StepStatus } from '../api/types.ts';
 
 export interface StepGroup { position: number; steps: RunStep[] }
 
@@ -32,7 +32,15 @@ export function stepDetail(step: Pick<RunStep, 'status' | 'output_summary' | 'er
     return step.output_summary;
 }
 
-export const stepsDone = (steps: Pick<RunStep, 'status'>[]) => steps.filter(s => s.status === 'completed').length;
+// A completed run can still have failed stages: a dead model leaves its rows to code defaults
+// (more escalations, a template report). A failed run already shows its own error.
+export function fallbackWarning(run: Pick<Run, 'status' | 'steps'>): string | null {
+    if (run.status !== 'completed') return null;
+    const failed = run.steps.filter(s => s.status === 'failed').map(s => s.label);
+    return failed.length ? `Model fallback in ${failed.join(', ')}: more items may need approval than usual.` : null;
+}
+
+export const stepsDone =(steps: Pick<RunStep, 'status'>[]) => steps.filter(s => s.status === 'completed').length;
 
 // Fixed class names so Tailwind sees them; more than 3 parallel steps wrap onto a second line.
 export const COLUMNS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3' };
