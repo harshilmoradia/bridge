@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Check, EyeOff, ShieldAlert, X } from 'lucide-react';
+import { ArrowUpRight, Check, EyeOff, Lock, ShieldAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDecideItem } from '../../api/hooks';
 import type { EvidenceRef, Item } from '../../api/types';
 import { buildOverride, validateEntry, type EntryDraft } from '../../lib/entry';
 import { accountName, inTab, isTypingTarget, kindTitle, modelTier, nextSelection, stepSelection, type InboxTab } from '../../lib/inbox';
 import { isNegative } from '../../lib/money';
+import { decisionToastText, learnableReason, notLearnedNote, rulePreview } from '../../lib/rules';
+import { rulesPanel } from '../../lib/rulesPanel';
 import type { TxRow } from '../../lib/tableModel';
 import { cn } from '../../lib/utils';
 import { Money } from '../Money';
 import { RuleChip } from '../RuleChip';
 import { StatusChip } from '../StatusChip';
 import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
 
 // Per-item edit state lives in the inbox (keyed by item id) so an item restored after a failed decision keeps it.
 interface ItemUi { editing: boolean; draft: EntryDraft | null; remember: boolean; showSent: boolean }
@@ -162,6 +165,46 @@ function JournalEntry({ item, ui, setUi }: { item: Item; ui: ItemUi; setUi: (p: 
     );
 }
 
+// The remember switch. Disabled with a reason when the backend says this item can't teach a rule; when on, it previews what will be saved.
+function RememberRule({ item, ui, setUi }: { item: Item; ui: ItemUi; setUi: (p: Partial<ItemUi>) => void }) {
+    const reason = learnableReason(item);
+    const on = ui.remember && reason === null;
+    const editing = ui.editing && ui.draft !== null;
+    const preview = on ? rulePreview(item, editing ? ui.draft : toDraft(item)) : null;
+    const id = `remember-${item.id}`;
+    return (
+        <div data-testid="remember-rule" data-learnable={reason === null}
+            className={cn('rounded-lg border p-3 transition-colors', on && 'border-violet/40 bg-violet-soft/60', reason !== null && 'bg-muted/50')}>
+            <div className="flex items-start gap-3">
+                <Switch id={id} checked={on} disabled={reason !== null} onCheckedChange={checked => setUi({ remember: checked })}
+                    aria-describedby={`${id}-hint`} className="mt-0.5 data-checked:bg-violet" />
+                <div className="min-w-0 flex-1">
+                    <label htmlFor={id} className={cn('flex items-center gap-2 text-[13.5px] font-semibold', reason === null ? 'cursor-pointer' : 'text-muted-foreground')}>
+                        Remember this as a rule
+                        {reason === null && <span className={cn('rounded-full px-1.5 text-[10.5px] leading-[17px] font-semibold uppercase', on ? 'bg-violet text-card' : 'bg-muted text-muted-foreground')}>{on ? 'On' : 'Off'}</span>}
+                        {reason !== null && <Lock className="size-3.5" aria-hidden="true" />}
+                    </label>
+                    <p id={`${id}-hint`} data-testid="remember-hint" className="text-[12.5px] text-muted-foreground">
+                        {reason ?? (on ? 'When you approve, Bridge saves this rule. Next run, matching items close automatically and name it.' : 'Switch on to close items like this automatically next time.')}
+                    </p>
+                    {preview && (
+                        <dl data-testid="rule-preview" className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-md border border-violet/30 bg-card px-3 py-2 text-[12.5px]">
+                            <dt className="text-faint">Kind</dt><dd className="font-semibold">{kindTitle(preview.kind)}</dd>
+                            <dt className="text-faint">Direction</dt><dd>Money {preview.direction} of the bank</dd>
+                            <dt className="text-faint">Entry</dt>
+                            <dd className="flex flex-wrap items-center gap-x-2">
+                                <span><span className="text-faint">DR</span> <span className="font-mono font-semibold">{preview.debit}</span></span>
+                                <span><span className="text-faint">CR</span> <span className="font-mono font-semibold">{preview.credit}</span></span>
+                                <Money value={preview.amount} className="font-semibold" />
+                            </dd>
+                        </dl>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 interface DetailProps { item: Item; rows: Map<string, TxRow>; ui: ItemUi; setUi: (p: Partial<ItemUi>) => void; onEvidence: (item: Item, ev: EvidenceRef) => void; onDecide: Decide; busy: boolean }
 
 function ItemDetail({ item, rows, ui, setUi, onEvidence, onDecide, busy }: DetailProps) {
@@ -218,14 +261,7 @@ function ItemDetail({ item, rows, ui, setUi, onEvidence, onDecide, busy }: Detai
                     <JournalEntry item={item} ui={ui} setUi={setUi} />
                 </section>
 
-                {pending && (
-                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-                        <input type="checkbox" role="switch" checked={ui.remember} onChange={e => setUi({ remember: e.target.checked })}
-                            className="relative mt-0.5 h-[18px] w-8 shrink-0 cursor-pointer appearance-none rounded-full bg-input transition-colors checked:bg-primary after:absolute after:top-0.5 after:left-0.5 after:size-3.5 after:rounded-full after:bg-card after:transition-transform checked:after:translate-x-3.5" />
-                        <span><span className="block text-[13.5px] font-semibold">Remember this as a rule</span>
-                            <span className="text-[12.5px] text-muted-foreground">Next time, items like this resolve automatically and say which rule closed them.</span></span>
-                    </label>
-                )}
+                {pending && <RememberRule item={item} ui={ui} setUi={setUi} />}
             </div>
             {pending && (
                 <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-card px-4 py-3 sm:px-6">
@@ -280,8 +316,16 @@ export function ApprovalInbox({ items, rows, onSelect, onEvidence, footer }: Inb
         const override = decision === 'approve' && ui.editing && original && ui.draft ? buildOverride(original, ui.draft) : undefined;
         if (decision === 'approve' && ui.editing && ui.draft && validateEntry(ui.draft)) return;
         const title = kindTitle(item.kind);
-        decide.mutateAsync({ itemId: item.id, decision, remember: ui.remember, note: null, ...(override ? { entry_override: override } : {}) }).then(
-            () => { toast.success(`${title} ${decision === 'approve' ? 'approved' : 'rejected'}${ui.remember && decision === 'approve' ? ' · rule saved' : ''}`); },
+        const remember = ui.remember && item.learnable && decision === 'approve';
+        decide.mutateAsync({ itemId: item.id, decision, remember, note: null, ...(override ? { entry_override: override } : {}) }).then(
+            response => {
+                // The rule claim comes from the response only; nothing is promised when rule_id is null.
+                const ruleId = response.rule_id ?? null;
+                toast.success(decisionToastText(title, decision, ruleId), {
+                    description: notLearnedNote(remember, decision, ruleId) ?? undefined,
+                    action: ruleId !== null ? { label: 'View rule', onClick: () => rulesPanel.open(ruleId) } : undefined,
+                });
+            },
             (e: Error) => { toast.error(`Could not ${decision} ${title.toLowerCase()}; restored. ${e.message}`); },
         );
     };

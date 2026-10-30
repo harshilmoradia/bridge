@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
-import { keys, useRules, useRun, useRunAudit } from '../api/hooks';
+import { keys, useRun, useRunAudit } from '../api/hooks';
+import { LearnedRulesPanel } from '../components/LearnedRules';
 import type { AuditEntry, Run } from '../api/types';
 import { QueryState } from '../components/QueryState';
 import { StepCard } from '../components/recon/StepCard';
@@ -9,7 +10,6 @@ import { Badge } from '../components/ui/badge';
 import { cn } from '../lib/utils';
 import { isRunActive, runJustFinished } from '../lib/workspace';
 import { COLUMNS, groupSteps, stepsDone } from '../lib/stepper';
-import { ruleRows } from '../lib/rules';
 import { actorLabel, auditView, formatDuration, runDurationMs, sortAudit, traceTotals } from '../lib/trace';
 import { Page } from './Pages';
 
@@ -85,31 +85,7 @@ function AuditLog({ entries }: { entries: AuditEntry[] }) {
     );
 }
 
-function RulesTable({ rules }: { rules: Parameters<typeof ruleRows>[0] }) {
-    if (rules.length === 0) return <p className="text-sm text-muted-foreground" data-testid="rules-empty">No rules learned yet. Approve an item with "remember" checked to teach one.</p>;
-    return (
-        <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-left text-sm" data-testid="rules-table">
-                <thead className="text-xs text-muted-foreground"><tr>{['Rule', 'Kind', 'Pattern', 'Accounts', 'Created by', 'Created at'].map(h => <th key={h} className="px-3 py-1.5 font-medium">{h}</th>)}</tr></thead>
-                <tbody className="divide-y">
-                    {ruleRows(rules).map(r => (
-                        <tr key={r.id} data-testid="rule-row">
-                            <td className="px-3 py-1.5">#{r.id}{!r.active && <span className="ml-1 text-xs text-muted-foreground">(inactive)</span>}</td>
-                            <td className="px-3 py-1.5">{r.kind}</td>
-                            <td className="px-3 py-1.5 font-mono text-xs break-all">{r.pattern}</td>
-                            <td className="px-3 py-1.5">{r.accounts}</td>
-                            <td className="px-3 py-1.5">{r.createdBy}</td>
-                            <td className="px-3 py-1.5 text-xs text-muted-foreground"><time dateTime={r.createdAt}>{new Date(r.createdAt).toLocaleString()}</time></td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
 export function RunTracePage() {
-    const rules = useRules();
     const { id } = useParams<{ id: string }>();
     const run = useRun(id);
     const audit = useRunAudit(id, isRunActive(run.data?.status));
@@ -138,9 +114,9 @@ export function RunTracePage() {
                 <h2 className="text-sm font-medium">Audit log</h2>
                 <QueryState query={audit}>{entries => <AuditLog entries={entries} />}</QueryState>
             </section>
-            <section aria-label="Learned rules" className="space-y-2">
+            <section aria-label="Learned rules" id="learned-rules" className="space-y-2">
                 <h2 className="text-sm font-medium">Learned rules</h2>
-                <QueryState query={rules}>{list => <RulesTable rules={list} />}</QueryState>
+                <LearnedRulesPanel />
             </section>
         </Page>
     );
